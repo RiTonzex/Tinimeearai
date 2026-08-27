@@ -27,19 +27,22 @@ if not SECRET_KEY:
         SECRET_KEY = 'django-insecure-auto-generated-fallback-key-change-me-in-production-env'
 
 # รองรับทั้ง Localhost, Custom Domain, และ *.vercel.app อัตโนมัติ
-allowed_hosts_str = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost,testserver,.vercel.app')
+allowed_hosts_str = os.environ.get('ALLOWED_HOSTS', '*,127.0.0.1,localhost,testserver,.vercel.app')
 ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',') if h.strip()]
 
-# CSRF Trusted Origins สำหรับ Vercel
+# CSRF Trusted Origins สำหรับ Vercel & Local
 CSRF_TRUSTED_ORIGINS = [
     'https://*.vercel.app',
     'https://*.now.sh',
     'http://127.0.0.1:8000',
     'http://localhost:8000',
+    'http://127.0.0.1',
+    'http://localhost',
 ]
 custom_trusted_origins = os.environ.get('CSRF_TRUSTED_ORIGINS')
 if custom_trusted_origins:
     CSRF_TRUSTED_ORIGINS.extend([origin.strip() for origin in custom_trusted_origins.split(',') if origin.strip()])
+
 
 # -----------------------------------------------------------------------------
 # Application Definition
@@ -50,13 +53,14 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    # Cloudinary Integration (ต้องอยู่ก่อน staticfiles)
-    'cloudinary_storage',
     'django.contrib.staticfiles',
+    # Cloudinary Integration (Media Storage)
+    'cloudinary_storage',
     'cloudinary',
     # Local Apps
     'checkin',
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -134,7 +138,11 @@ USE_TZ = True
 # -----------------------------------------------------------------------------
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / 'staticfiles_build' / 'static'
+
+# WhiteNoise Configuration for Vercel Serverless
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_MANIFEST_STRICT = False
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = Path('/tmp/media') if os.environ.get('VERCEL') == '1' else (BASE_DIR / 'media')
@@ -176,6 +184,8 @@ else:
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+
+
 
 # -----------------------------------------------------------------------------
 # Production Security Headers (Auto-enabled when DEBUG = False)
