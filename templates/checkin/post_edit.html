@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}แก้ไขโพสต์ - ที่นี่มีอะไร{% endblock %}
+
+{% block extra_css %}
+<style>
+    #mini-map {
+        height: 220px;
+        width: 100%;
+        border-radius: 1.25rem;
+        z-index: 10;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Bar -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                <span>แก้ไขโพสต์</span>
+            </h1>
+            <p class="text-xs text-slate-400 mt-0.5">ปรับปรุงข้อความ รูปภาพ หรือพิกัดสถานที่</p>
+        </div>
+        <a href="{% url 'post_detail' pk=post.pk %}" class="w-10 h-10 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white active:scale-90 transition shadow-md">
+            <i data-lucide="x" class="w-5 h-5"></i>
+        </a>
+    </div>
+
+    <!-- Edit Form -->
+    <form method="POST" enctype="multipart/form-data" class="space-y-5">
+        {% csrf_token %}
+
+        <!-- Current Image & Replace Option -->
+        <div class="space-y-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                รูปภาพสถานที่
+            </label>
+            <div class="relative rounded-[2rem] overflow-hidden aspect-[4/3] bg-slate-900 border border-slate-800 shadow-xl group">
+                <img id="image-preview" src="{{ post.get_image_url }}" alt="Current Photo" class="w-full h-full object-cover" />
+                <label for="image-input" class="absolute bottom-4 right-4 px-4 py-2.5 rounded-2xl bg-slate-950/85 backdrop-blur-md border border-white/10 text-xs font-bold text-white hover:bg-emerald-600 transition cursor-pointer flex items-center gap-2 shadow-2xl active:scale-95">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> เปลี่ยนรูปใหม่
+                </label>
+                {{ form.image }}
+            </div>
+        </div>
+
+        <!-- Caption -->
+        <div class="space-y-1.5">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                บอกเล่าประสบการณ์
+            </label>
+            {{ form.caption }}
+        </div>
+
+        <!-- Location & Coordinates -->
+        <div class="p-5 rounded-[2rem] glass-card border border-white/[0.08] space-y-4 shadow-xl">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-teal-400"></i> พิกัดสถานที่
+                </h3>
+                <button type="button" id="btn-get-location" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 border border-teal-500/30 text-teal-300 text-xs font-bold transition active:scale-90 shadow-sm">
+                    <i data-lucide="crosshair" class="w-3.5 h-3.5"></i> อัปเดต GPS
+                </button>
+            </div>
+
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                    <i data-lucide="navigation" class="w-4 h-4"></i>
+                </div>
+                {{ form.location_name }}
+            </div>
+
+            {{ form.latitude }}
+            {{ form.longitude }}
+
+            <div id="mini-map" class="border border-slate-700/80 shadow-2xl"></div>
+        </div>
+
+        <div class="flex items-center gap-3 pt-2">
+            <a href="{% url 'post_detail' pk=post.pk %}" class="w-1/3 py-4 px-4 rounded-2xl bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-300 font-bold text-center text-sm transition active:scale-95">
+                ยกเลิก
+            </a>
+            <button type="submit" class="w-2/3 py-4 px-4 rounded-2xl bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 active:scale-[0.98] transition">
+                บันทึกการแก้ไข
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const fileInput = document.getElementById('image-input');
+    const imagePreview = document.getElementById('image-preview');
+    const latInput = document.getElementById('latitude-input');
+    const lngInput = document.getElementById('longitude-input');
+    const btnGetLocation = document.getElementById('btn-get-location');
+
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => { imagePreview.src = e.target.result; };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    const initLat = parseFloat(latInput.value) || 13.736717;
+    const initLng = parseFloat(lngInput.value) || 100.523186;
+
+    const map = L.map('mini-map').setView([initLat, initLng], latInput.value ? 14 : 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    let marker = L.marker([initLat, initLng], { draggable: true }).addTo(map);
+
+    marker.on('dragend', function () {
+        const pos = marker.getLatLng();
+        latInput.value = pos.lat.toFixed(6);
+        lngInput.value = pos.lng.toFixed(6);
+    });
+
+    map.on('click', function(e) {
+        marker.setLatLng(e.latlng);
+        latInput.value = e.latlng.lat.toFixed(6);
+        lngInput.value = e.latlng.lng.toFixed(6);
+    });
+
+    btnGetLocation.addEventListener('click', () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                latInput.value = lat.toFixed(6);
+                lngInput.value = lng.toFixed(6);
+                marker.setLatLng([lat, lng]);
+                map.setView([lat, lng], 15);
+            });
+        }
+    });
+});
+</script>
+{% endblock %}
