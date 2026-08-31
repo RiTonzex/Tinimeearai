@@ -1,0 +1,379 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-black text-zinc-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- Favicon (Pure Black & White Minimalist Favicon) -->
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}?v=black_2026">
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}?v=black_2026">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'favicon.png' %}?v=black_2026">
+    <link rel="shortcut icon" href="{% static 'favicon.ico' %}?v=black_2026">
+    <link rel="apple-touch-icon" href="{% static 'favicon.png' %}?v=black_2026">
+    
+    <!-- Mobile PWA & Web App Meta Tags -->
+    <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ที่นี่มีอะไร">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    
+    <title>{% block title %}ที่นี่มีอะไร - Travel & Check-in Community{% endblock %}</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fafafa',
+                            100: '#f4f4f5',
+                            200: '#e4e4e7',
+                            300: '#d4d4d8',
+                            400: '#a1a1aa',
+                            500: '#71717a',
+                            600: '#52525b',
+                            700: '#3f3f46',
+                            800: '#27272a',
+                            900: '#18181b',
+                            950: '#09090b',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', '"Prompt"', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts: Plus Jakarta Sans & Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Leaflet.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <style>
+        :root {
+            --sat: env(safe-area-inset-top, 0px);
+            --sab: env(safe-area-inset-bottom, 0px);
+        }
+        html {
+            scroll-behavior: smooth;
+            -webkit-text-size-adjust: 100%;
+            background-color: #000000;
+        }
+        body {
+            font-family: 'Prompt', 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            background-color: #000000;
+            background-image: radial-gradient(at 50% 0%, rgba(255, 255, 255, 0.03) 0px, transparent 60%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+        /* Smooth Page Entrance Transition */
+        main {
+            animation: pageEntrance 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            will-change: opacity, transform;
+        }
+        @keyframes pageEntrance {
+            0% {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .glass-header {
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            transform: translateZ(0);
+        }
+        .glass-card {
+            background: rgba(12, 12, 14, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+        .glass-card-hover {
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-card-hover:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+            transform: translateY(-2px) scale(1.002);
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.8), 0 0 20px -5px rgba(255, 255, 255, 0.05);
+        }
+        .safe-bottom {
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+        .safe-top {
+            padding-top: max(0.5rem, env(safe-area-inset-top));
+        }
+        /* Top Navigation Progress Bar - Monochrome Platinum Glow */
+        #top-loading-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 2px;
+            width: 0%;
+            background: linear-gradient(90deg, #52525b, #ffffff);
+            z-index: 9999;
+            transition: width 0.2s ease, opacity 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+            pointer-events: none;
+        }
+        /* Custom Scrollbar - Pure Black Minimalist */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+        /* Leaflet Dark Map Popups */
+        .leaflet-popup-content-wrapper {
+            background: #09090b !important;
+            color: #ffffff !important;
+            border-radius: 1.25rem !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            box-shadow: 0 25px 30px -5px rgba(0, 0, 0, 0.8) !important;
+            padding: 4px !important;
+        }
+        .leaflet-popup-tip {
+            background: #09090b !important;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="min-h-screen bg-black text-zinc-100 flex flex-col antialiased selection:bg-zinc-800 selection:text-white pb-24 md:pb-8">
+    <div class="hidden" aria-hidden="true">{% csrf_token %}</div>
+
+    <!-- Top Navigation Header (Clean Minimalist Luxury Header) -->
+    <header class="sticky top-0 z-40 w-full glass-header safe-top transition-all duration-200">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <!-- Brand Logo (Left) -->
+            <a href="{% url 'post_list' %}" class="flex items-center gap-3 group active:scale-95 transition-transform">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-2xl bg-zinc-800 border border-white/20 p-[1.5px] shadow-lg shadow-black/60 group-hover:border-white/40 transition-colors">
+                        <div class="w-full h-full bg-black rounded-[13px] flex items-center justify-center">
+                            <i data-lucide="map-pin" class="w-5 h-5 text-white group-hover:scale-110 transition-transform"></i>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <span class="font-extrabold text-lg tracking-tight text-white">ที่นี่มีอะไร</span>
+                    <span class="block text-[10px] uppercase font-bold tracking-widest text-zinc-400 -mt-1 font-mono">TINIMEEARAI</span>
+                </div>
+            </a>
+
+            <!-- Right Actions (Profile, Notifications, Logout) -->
+            <div class="flex items-center gap-2.5">
+                {% if user.is_authenticated %}
+                    <!-- Notification Bell -->
+                    <a href="{% url 'notifications' %}" class="relative w-9 h-9 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-white hover:border-zinc-600 transition active:scale-90" title="การแจ้งเตือน">
+                        <i data-lucide="bell" class="w-4 h-4 text-zinc-300"></i>
+                        {% if unread_notifications_count > 0 %}
+                            <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-white text-black font-black text-[10px] flex items-center justify-center shadow-lg animate-pulse font-mono">
+                                {{ unread_notifications_count }}
+                            </span>
+                        {% endif %}
+                    </a>
+
+                    <div class="flex items-center gap-2 pl-2 border-l border-zinc-800">
+                        <a href="{% url 'settings' %}" class="flex items-center gap-2 group p-1 pr-2 rounded-xl hover:bg-zinc-900 transition" title="ตั้งค่า & โปรไฟล์">
+                            <div class="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center justify-center font-bold text-white text-xs shadow-md">
+                                {% if user.profile.get_avatar_url %}
+                                    <img src="{{ user.profile.get_avatar_url }}" alt="Avatar" class="w-full h-full object-cover">
+                                {% else %}
+                                    {{ user.profile.get_initial|default:user.username|slice:":1"|upper }}
+                                {% endif %}
+                            </div>
+                            <span class="text-xs font-semibold text-zinc-300 hidden lg:inline group-hover:text-white transition">{{ user.profile.get_display_name|default:user.username }}</span>
+                        </a>
+                        <a href="{% url 'logout' %}" class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-rose-400 hover:border-rose-900/60 transition active:scale-90" title="ออกจากระบบ">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                        </a>
+                    </div>
+                {% else %}
+                    <a href="{% url 'login' %}" class="text-xs md:text-sm font-semibold text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl hover:bg-zinc-900 transition">
+                        เข้าสู่ระบบ
+                    </a>
+                    <a href="{% url 'register' %}" class="text-xs md:text-sm font-bold text-black bg-white hover:bg-zinc-200 px-4 py-2 rounded-xl transition shadow-lg shadow-white/5 active:scale-95">
+                        สมัครสมาชิก
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- DESKTOP LEFT SIDEBAR TAB ICON BAR (Minimalist High-Contrast Sidebar) -->
+    {% if user.is_authenticated %}
+    <nav class="hidden md:flex fixed left-4 lg:left-8 top-1/2 -translate-y-1/2 z-40 flex-col items-center gap-3 p-2.5 rounded-3xl bg-zinc-950/95 border border-white/10 shadow-2xl backdrop-blur-2xl" aria-label="แถบเมนูหลัก">
+        <!-- 1. สำรวจ -->
+        <a href="{% url 'post_list' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if request.path == '/' or request.path == '/posts/' %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="สำรวจ">
+            <i data-lucide="compass" class="w-5 h-5 {% if request.path == '/' or request.path == '/posts/' %}text-black{% endif %}"></i>
+            <span class="text-[9px] font-bold mt-0.5">สำรวจ</span>
+        </a>
+
+        <!-- 2. ค้นหา -->
+        <a href="{% url 'search' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if '/search' in request.path %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="ค้นหา">
+            <i data-lucide="search" class="w-5 h-5 {% if '/search' in request.path %}text-black{% endif %}"></i>
+            <span class="text-[9px] font-bold mt-0.5">ค้นหา</span>
+        </a>
+
+        <!-- 3. รอยเท้าของฉัน -->
+        <a href="{% url 'my_posts' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if '/my-posts' in request.path %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="รอยเท้าของฉัน">
+            <i data-lucide="map" class="w-5 h-5 {% if '/my-posts' in request.path %}text-black{% endif %}"></i>
+            <span class="text-[9px] font-bold mt-0.5">รอยเท้า</span>
+        </a>
+
+        <!-- 4. โปรไฟล์สาธารณะ -->
+        <a href="{% url 'user_profile' username=user.username %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if request.resolver_match.url_name == 'user_profile' and request.resolver_match.kwargs.username == user.username %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="โปรไฟล์สาธารณะ">
+            <div class="w-5 h-5 rounded-full overflow-hidden border {% if request.resolver_match.url_name == 'user_profile' and request.resolver_match.kwargs.username == user.username %}border-black ring-1 ring-black{% else %}border-zinc-500 group-hover:border-white{% endif %} flex items-center justify-center bg-zinc-900 shrink-0 shadow-sm">
+                {% if user.profile.get_avatar_url %}
+                    <img src="{{ user.profile.get_avatar_url }}" alt="Profile" class="w-full h-full object-cover">
+                {% else %}
+                    <span class="text-[9px] font-black text-white">{{ user.profile.get_initial|default:user.username|slice:":1"|upper }}</span>
+                {% endif %}
+            </div>
+            <span class="text-[9px] font-bold mt-0.5">โปรไฟล์</span>
+        </a>
+
+        <!-- 5. ตั้งค่า -->
+        <a href="{% url 'settings' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if '/settings' in request.path %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="ตั้งค่า">
+            <i data-lucide="settings" class="w-5 h-5 {% if '/settings' in request.path %}text-black{% endif %}"></i>
+            <span class="text-[9px] font-bold mt-0.5">ตั้งค่า</span>
+        </a>
+    </nav>
+    {% endif %}
+
+    <!-- FLOATING ACTION BUTTON (Desktop Pure White High Contrast FAB) -->
+    {% block floating_action_button %}
+    {% if user.is_authenticated %}
+    <a href="{% url 'create_post' %}" class="fixed bottom-8 right-8 z-40 hidden md:flex items-center gap-2 px-5 py-3.5 rounded-full bg-white hover:bg-zinc-200 text-black font-black text-sm shadow-2xl shadow-white/10 active:scale-95 transition-all duration-150" title="สร้างโพสต์ใหม่">
+        <i data-lucide="plus" class="w-5 h-5 stroke-[3]"></i>
+        <span class="font-bold tracking-wide">สร้างโพสต์</span>
+    </a>
+    {% endif %}
+    {% endblock %}
+
+    <!-- Compact Floating Toast Messages -->
+    {% if messages %}
+        <div id="system-toast-container" class="fixed bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 max-w-sm px-4">
+            {% for message in messages %}
+                <div class="app-toast-alert pointer-events-auto px-4 py-2.5 rounded-full text-xs font-semibold shadow-2xl backdrop-blur-xl border flex items-center gap-2 transition-all duration-300
+                    {% if message.tags == 'error' %} bg-zinc-950/95 border-rose-500/40 text-rose-200 shadow-rose-950/50
+                    {% elif message.tags == 'success' %} bg-zinc-950/95 border-white/20 text-white shadow-black/80
+                    {% else %} bg-zinc-950/95 border-zinc-800 text-zinc-200 {% endif %}">
+                    <i data-lucide="{% if message.tags == 'error' %}alert-circle{% else %}check-circle-2{% endif %}" class="w-4 h-4 shrink-0 {% if message.tags == 'error' %}text-rose-400{% else %}text-white{% endif %}"></i>
+                    <span class="truncate max-w-[260px]">{{ message }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Main Content Container with Smooth Slide & Fade Page Transition -->
+    <main id="app-main-content" class="flex-1 w-full {% block main_width %}max-w-xl{% endblock %} mx-auto px-4 pt-2 pb-4 md:py-6 page-transition-enter">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Mobile Bottom App Dock (Clean Minimalist Luxury Dock) -->
+    {% if user.is_authenticated %}
+    <nav class="fixed bottom-3 left-4 right-4 z-40 sm:hidden glass-header rounded-3xl border border-white/10 shadow-2xl safe-bottom">
+        <div class="grid grid-cols-4 items-center h-16 px-2">
+            <!-- 1. สำรวจ -->
+            <div class="flex items-center justify-center">
+                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[50px] py-1" title="สำรวจ">
+                    <i data-lucide="compass" class="w-5 h-5"></i>
+                    <span class="text-[10px] mt-1 font-medium">สำรวจ</span>
+                </a>
+            </div>
+
+            <!-- 2. ค้นหา -->
+            <div class="flex items-center justify-center">
+                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[50px] py-1" title="ค้นหา">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                    <span class="text-[10px] mt-1 font-medium">ค้นหา</span>
+                </a>
+            </div>
+
+            <!-- 3. โปรไฟล์สาธารณะ -->
+            <div class="flex items-center justify-center">
+                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[50px] py-1" title="โปรไฟล์">
+                    <div class="w-5 h-5 rounded-full overflow-hidden border {% if '/profile/' in request.path and user.username in request.path %}border-white ring-1 ring-white/40{% else %}border-zinc-600{% endif %} flex items-center justify-center bg-zinc-900 shadow-sm">
+                        {% if user.profile.get_avatar_url %}
+                            <img src="{{ user.profile.get_avatar_url }}" alt="Profile" class="w-full h-full object-cover">
+                        {% else %}
+                            <span class="text-[9px] font-black text-white">{{ user.profile.get_initial|default:user.username|slice:":1"|upper }}</span>
+                        {% endif %}
+                    </div>
+                    <span class="text-[10px] mt-1 font-medium">โปรไฟล์</span>
+                </a>
+            </div>
+
+            <!-- 4. ตั้งค่า -->
+            <div class="flex items-center justify-center">
+                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[50px] py-1" title="ตั้งค่า">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="text-[10px] mt-1 font-medium">ตั้งค่า</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Init Lucide Icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+    <!-- Custom Main JS with Cache Busting -->
+    <script src="{% static 'js/main.js' %}?v=20260831_dark_ok"></script>
+    {% block extra_js %}{% endblock %}
+
+</body>
+</html>

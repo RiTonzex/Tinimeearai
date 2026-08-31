@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block title %}สไตล์แผนที่ & การแสดงผล - ที่นี่มีอะไร{% endblock %}
+
+{% block extra_css %}
+<style>
+    #map-preview-box {
+        height: 240px;
+        width: 100%;
+        border-radius: 1.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5 max-w-lg mx-auto pb-8">
+
+    <!-- Top Back Navigation -->
+    <div class="flex items-center justify-between">
+        <a href="{% url 'settings' %}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white active:scale-95 transition shadow-sm">
+            <i data-lucide="arrow-left" class="w-4 h-4 text-zinc-300"></i>
+            <span>กลับไปการตั้งค่า</span>
+        </a>
+    </div>
+
+    <!-- Map Theme Settings Card -->
+    <div class="space-y-3">
+        <div class="flex items-center gap-2 text-sm font-bold text-white px-1">
+            <i data-lucide="map" class="w-4 h-4 text-white"></i>
+            <span>สไตล์แผนที่ & การแสดงผล</span>
+        </div>
+
+        <div class="rounded-[2rem] glass-card border border-white/[0.08] p-6 shadow-2xl space-y-5">
+            <p class="text-xs text-zinc-300 leading-relaxed">
+                เลือกรูปแบบแผนที่ที่คุณชื่นชอบ การตั้งค่านี้จะมีผลกับแผนที่ทั้งหมดในหน้าฟีด หน้ารายละเอียด และแผนที่รอยเท้าการเดินทาง
+            </p>
+
+            <!-- 3 Theme Choices -->
+            <div class="grid grid-cols-3 gap-2.5" id="map-style-selector">
+                <button type="button" data-style="dark" class="map-style-btn p-3.5 rounded-2xl border text-center transition flex flex-col items-center gap-2">
+                    <i data-lucide="moon" class="w-6 h-6"></i>
+                    <span class="text-xs font-bold">โหมดมืด</span>
+                </button>
+                <button type="button" data-style="standard" class="map-style-btn p-3.5 rounded-2xl border text-center transition flex flex-col items-center gap-2">
+                    <i data-lucide="map" class="w-6 h-6"></i>
+                    <span class="text-xs font-bold">มาตรฐาน</span>
+                </button>
+                <button type="button" data-style="satellite" class="map-style-btn p-3.5 rounded-2xl border text-center transition flex flex-col items-center gap-2">
+                    <i data-lucide="globe" class="w-6 h-6"></i>
+                    <span class="text-xs font-bold">ดาวเทียม</span>
+                </button>
+            </div>
+
+            <!-- Live Preview -->
+            <div class="space-y-2 pt-2">
+                <span class="text-xs font-bold text-zinc-400 block px-1">ตัวอย่างการแสดงผลแผนที่จริง</span>
+                <div id="map-preview-box" class="border border-zinc-800 shadow-xl"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const previewMap = L.map('map-preview-box').setView([13.736717, 100.523186], 13);
+    let currentTileLayer = null;
+
+    function applyTileLayer(style) {
+        if (currentTileLayer) {
+            previewMap.removeLayer(currentTileLayer);
+        }
+
+        if (style === 'satellite') {
+            currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles © Esri',
+                maxZoom: 18
+            });
+        } else if (style === 'standard') {
+            currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap &copy; Contributors',
+                maxZoom: 19
+            });
+        } else {
+            currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                className: 'dark-map-tiles',
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            });
+        }
+
+        currentTileLayer.addTo(previewMap);
+    }
+
+    const savedStyle = localStorage.getItem('map_style') || 'dark';
+    const styleButtons = document.querySelectorAll('.map-style-btn');
+
+    function updateUI(style) {
+        localStorage.setItem('map_style', style);
+        applyTileLayer(style);
+
+        styleButtons.forEach(btn => {
+            if (btn.dataset.style === style) {
+                btn.className = 'map-style-btn p-3.5 rounded-2xl border text-center transition flex flex-col items-center gap-2 bg-white text-black font-bold border-white shadow-xl shadow-white/10';
+            } else {
+                btn.className = 'map-style-btn p-3.5 rounded-2xl border text-center transition flex flex-col items-center gap-2 bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700';
+            }
+        });
+    }
+
+    updateUI(savedStyle);
+    L.marker([13.736717, 100.523186]).addTo(previewMap).bindPopup('กรุงเทพมหานคร').openPopup();
+
+    styleButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            updateUI(btn.dataset.style);
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}เกี่ยวกับ ที่นี่มีอะไร - Travel Community{% endblock %}
+
+{% block content %}
+<div class="space-y-5 max-w-lg mx-auto pb-8">
+  <!-- Top Back Navigation -->
+  <div class="flex items-center justify-between">
+    <a
+      href="{% url 'settings' %}"
+      class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white active:scale-95 transition shadow-sm"
+    >
+      <i data-lucide="arrow-left" class="w-4 h-4 text-zinc-300"></i>
+      <span>กลับไปการตั้งค่า</span>
+    </a>
+  </div>
+
+  <!-- About App Card -->
+  <div class="space-y-3">
+    <div class="flex items-center gap-2 text-sm font-bold text-white px-1">
+      <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+      <span>เกี่ยวกับแอปพลิเคชัน</span>
+    </div>
+
+    <div
+      class="rounded-[2rem] glass-card border border-white/[0.08] p-6 shadow-2xl space-y-6"
+    >
+      <!-- Brand Logo & Header -->
+      <div class="text-center space-y-3">
+        <div
+          class="w-16 h-16 rounded-3xl bg-zinc-800 border border-zinc-700 p-[2px] shadow-2xl mx-auto"
+        >
+          <div
+            class="w-full h-full bg-black rounded-[22px] flex items-center justify-center"
+          >
+            <i data-lucide="map-pin" class="w-8 h-8 text-white"></i>
+          </div>
+        </div>
+        <div>
+          <h2 class="text-xl font-black text-white">ที่นี่มีอะไร</h2>
+          <span
+            class="text-xs font-mono font-bold tracking-widest text-zinc-400"
+            >TINIMEEARAI v1.0.0</span
+          >
+        </div>
+        <p class="text-xs text-zinc-300 leading-relaxed max-w-xs mx-auto">
+          แพลตฟอร์มคอมมูนิตี้ท่องเที่ยวและเช็คอินสถานที่จริง แบ่งปันภาพถ่าย
+          พิกัด GPS และเรื่องราวการเดินทางทั่วไทย
+        </p>
+      </div>
+
+      <!-- Features Highlights -->
+      <div class="space-y-2.5 pt-2 border-t border-zinc-800 text-xs">
+        <div
+          class="flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800"
+        >
+          <i data-lucide="camera" class="w-4 h-4 text-white shrink-0"></i>
+          <span class="text-zinc-300"
+            >อัปโหลดภาพถ่ายเก็บไว้บน Cloudinary Storage ปลอดภัย</span
+          >
+        </div>
+        <div
+          class="flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800"
+        >
+          <i
+            data-lucide="navigation"
+            class="w-4 h-4 text-white shrink-0"
+          ></i>
+          <span class="text-zinc-300"
+            >ดึงพิกัด Geolocation อัตโนมัติและแสดงบนแผนที่ Leaflet</span
+          >
+        </div>
+        <div
+          class="flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800"
+        >
+          <i data-lucide="database" class="w-4 h-4 text-white shrink-0"></i>
+          <span class="text-zinc-300"
+            >ฐานข้อมูลความเร็วสูง Neon PostgreSQL Cloud Database</span
+          >
+        </div>
+      </div>
+
+      <!-- Credits / Developer Team CS68 -->
+      <div
+        class="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-3"
+      >
+        <div
+          class="flex items-center justify-between border-b border-zinc-800 pb-2"
+        >
+          <span class="text-xs font-bold text-white flex items-center gap-1.5">
+            <i data-lucide="users" class="w-4 h-4 text-white"></i>
+            <span>พัฒนาโดยทีม CS68</span>
+          </span>
+          <span
+            class="text-[10px] font-mono text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded-full border border-zinc-700"
+            >Computer Science</span
+          >
+        </div>
+
+        <div class="space-y-2">
+          <!-- Member 1 -->
+          <div
+            class="flex items-center justify-between text-xs px-2.5 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04]"
+          >
+            <span class="font-medium text-zinc-200">นายภูพิรัฐ แซ่โค้ว</span>
+            <span class="font-mono text-white font-bold text-[11px]"
+              >6812732119</span
+            >
+          </div>
+          <!-- Member 2 -->
+          <div
+            class="flex items-center justify-between text-xs px-2.5 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04]"
+          >
+            <span class="font-medium text-zinc-200">นายสกล มะลิลา</span>
+            <span class="font-mono text-white font-bold text-[11px]"
+              >6812732124</span
+            >
+          </div>
+          <!-- Member 3 -->
+          <div
+            class="flex items-center justify-between text-xs px-2.5 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04]"
+          >
+            <span class="font-medium text-zinc-200">นายอานนท์ เพิ่มพูล</span>
+            <span class="font-mono text-white font-bold text-[11px]"
+              >6812732129</span
+            >
+          </div>
+        </div>
+
+        <p class="text-[10px] text-center text-zinc-500 font-mono pt-1">
+          Check-in Web Application Project &copy; 2026
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

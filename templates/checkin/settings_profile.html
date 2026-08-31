@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block title %}แก้ไขข้อมูลโปรไฟล์ - ที่นี่มีอะไร{% endblock %}
+
+{% block content %}
+<div class="space-y-5 max-w-lg mx-auto pb-8">
+
+    <!-- Top Back Navigation -->
+    <div class="flex items-center justify-between">
+        <a href="{% url 'settings' %}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white active:scale-95 transition shadow-sm">
+            <i data-lucide="arrow-left" class="w-4 h-4 text-zinc-300"></i>
+            <span>กลับไปการตั้งค่า</span>
+        </a>
+    </div>
+
+    <!-- Edit Profile Card -->
+    <div class="space-y-3">
+        <div class="flex items-center gap-2 text-sm font-bold text-white px-1">
+            <i data-lucide="user" class="w-4 h-4 text-white"></i>
+            <span>แก้ไขข้อมูลโปรไฟล์</span>
+        </div>
+
+        <div class="rounded-[2rem] glass-card border border-white/[0.08] p-6 shadow-2xl space-y-5">
+            <form method="POST" enctype="multipart/form-data" class="space-y-4" id="profile-edit-form">
+                {% csrf_token %}
+
+                <!-- Avatar Upload Section -->
+                <div class="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-zinc-900/70 border border-zinc-800">
+                    <div class="relative group cursor-pointer" id="avatar-preview-wrapper">
+                        <div class="w-20 h-20 rounded-3xl overflow-hidden bg-black border-2 border-zinc-700 p-0.5 shadow-xl flex items-center justify-center">
+                            {% if profile.get_avatar_url %}
+                                <img id="avatar-img-preview" src="{{ profile.get_avatar_url }}" alt="Avatar" class="w-full h-full object-cover rounded-[22px]">
+                            {% else %}
+                                <div id="avatar-initial-fallback" class="w-full h-full bg-zinc-800 flex items-center justify-center font-black text-white text-2xl rounded-[22px]">
+                                    {{ profile.get_initial }}
+                                </div>
+                                <img id="avatar-img-preview" src="#" alt="Avatar" class="hidden w-full h-full object-cover rounded-[22px]">
+                            {% endif %}
+                        </div>
+
+                        <!-- Change Avatar Floating Badge -->
+                        <div class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white text-black flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                            <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                        </div>
+                    </div>
+
+                    {{ form.avatar }}
+
+                    <div class="space-y-1 text-center sm:text-left flex-1 min-w-0">
+                        <div class="flex items-center justify-center sm:justify-start gap-2">
+                            <span class="text-sm font-bold text-white">รูปภาพโปรไฟล์</span>
+                            <span class="text-[10px] text-zinc-300 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full font-bold">Cloudinary</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-400">แตะที่รูปเพื่อเลือกรูปใหม่จากคลังภาพหรือถ่ายรูป</p>
+                        <button type="button" id="btn-choose-avatar" class="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 text-zinc-200 text-xs font-bold transition active:scale-95">
+                            <i data-lucide="image" class="w-3.5 h-3.5 text-white"></i>
+                            <span>เลือกรูปโปรไฟล์ใหม่</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Username Display Card (Read-only) -->
+                <div class="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/50 border border-zinc-800">
+                    <span class="text-xs text-zinc-400 font-medium">ชื่อผู้ใช้งาน (Username)</span>
+                    <span class="text-xs font-bold text-zinc-300 font-mono">@{{ user.username }}</span>
+                </div>
+
+                <!-- Display Name -->
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-bold text-zinc-200">
+                            ชื่อที่แสดง (Display Name) <span class="text-zinc-400 font-normal text-[11px]">• แสดงในโพสต์และคอมเมนต์</span>
+                        </label>
+                    </div>
+                    {{ form.display_name }}
+                    <p class="text-[10px] text-zinc-400">ชื่อนี้จะแสดงให้ผู้อื่นเห็นแทนชื่อผู้ใช้ สามารถเปลี่ยนได้ตลอดเวลา</p>
+                </div>
+
+                <!-- Bio -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-bold text-zinc-200">
+                        ประวัติโดยย่อ (Bio) <span class="text-zinc-400 font-normal text-[11px]">• แนะนำตัวเอง</span>
+                    </label>
+                    {{ form.bio }}
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold text-zinc-200">ชื่อจริง</label>
+                        {{ form.first_name }}
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold text-zinc-200">นามสกุล</label>
+                        {{ form.last_name }}
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-bold text-zinc-200">อีเมล (Email)</label>
+                    {{ form.email }}
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full py-3.5 rounded-2xl bg-white hover:bg-zinc-200 text-black font-bold text-xs shadow-xl shadow-white/10 active:scale-[0.98] transition flex items-center justify-center gap-2">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                        <span>บันทึกการเปลี่ยนแปลง</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const avatarInput = document.getElementById('avatar-file-input');
+    const btnChoose = document.getElementById('btn-choose-avatar');
+    const previewWrapper = document.getElementById('avatar-preview-wrapper');
+    const imgPreview = document.getElementById('avatar-img-preview');
+    const initialFallback = document.getElementById('avatar-initial-fallback');
+
+    function triggerFile() {
+        if (avatarInput) avatarInput.click();
+    }
+
+    if (btnChoose) btnChoose.addEventListener('click', triggerFile);
+    if (previewWrapper) previewWrapper.addEventListener('click', triggerFile);
+
+    if (avatarInput) {
+        avatarInput.addEventListener('change', () => {
+            if (avatarInput.files && avatarInput.files[0]) {
+                const file = avatarInput.files[0];
+                if (!file.type.startsWith('image/')) {
+                    alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (imgPreview) {
+                        imgPreview.src = e.target.result;
+                        imgPreview.classList.remove('hidden');
+                    }
+                    if (initialFallback) {
+                        initialFallback.classList.add('hidden');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

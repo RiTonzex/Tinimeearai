@@ -1,0 +1,107 @@
+/**
+ * Tinimeearai (ที่นี่มีอะไร) - Custom Application Styles
+ * Pure Solid Black (OLED Dark / Luxury Minimalist) UI
+ */
+
+/* Page Transitions */
+@keyframes pageSlideFadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(8px) scale(0.996);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes pageSlideFadeOut {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.996);
+    }
+}
+
+.page-transition-enter {
+    animation: pageSlideFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: opacity, transform;
+}
+
+.page-transition-exit {
+    animation: pageSlideFadeOut 0.16s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+    will-change: opacity, transform;
+}
+
+/* Swipe Left / Right Gesture Animations */
+@keyframes swipeSlideOutLeft {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(-32px); opacity: 0; }
+}
+
+@keyframes swipeSlideOutRight {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(32px); opacity: 0; }
+}
+
+.swipe-exit-left {
+    animation: swipeSlideOutLeft 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+    will-change: opacity, transform;
+}
+
+.swipe-exit-right {
+    animation: swipeSlideOutRight 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+    will-change: opacity, transform;
+}
+
+/* Carousel Enhancements */
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.carousel-slide {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    scroll-snap-align: center;
+    box-sizing: border-box;
+}
+
+/* Glassmorphism Utilities - Pure Obsidian Glass */
+.glass-panel {
+    background: rgba(12, 12, 14, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Image Aspect Ratio Fallback */
+.post-card-img {
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+
+/* Safe Area Insets for Mobile Devices */
+.safe-top-inset {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.safe-bottom-inset {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* Free Sleek Dark Mode Map Tiles (Zero Watermark / No API Key Required) */
+.dark-map-tiles {
+    filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(90%) !important;
+}

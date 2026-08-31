@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block title %}การตั้งค่า & โปรไฟล์ - ที่นี่มีอะไร{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-lg mx-auto pb-8">
+
+    <!-- Profile & Account Header Card -->
+    <div class="p-6 md:p-7 rounded-[2.25rem] glass-card border border-white/[0.08] shadow-2xl relative overflow-hidden space-y-5">
+        <div class="flex items-center gap-4 relative z-10">
+            <div class="p-[2.5px] rounded-3xl bg-zinc-800 border border-zinc-700 shadow-xl shrink-0">
+                {% if user.profile.get_avatar_url %}
+                    <img src="{{ user.profile.get_avatar_url }}" alt="{{ user.profile.get_display_name }}" class="w-16 h-16 rounded-[21px] object-cover bg-black">
+                {% else %}
+                    <div class="w-16 h-16 rounded-[21px] bg-black flex items-center justify-center font-black text-2xl text-white">
+                        {{ user.profile.get_initial|default:user.username|slice:":1"|upper }}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="space-y-1 flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl font-black text-white tracking-tight truncate">{{ user.profile.get_display_name|default:user.username }}</h1>
+                    <span class="px-2.5 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 text-[10px] font-bold">Member</span>
+                </div>
+                <p class="text-xs text-zinc-400 flex items-center gap-1.5">
+                    <span class="font-mono text-zinc-400">@{{ user.username }}</span>
+                    {% if user.first_name %}
+                        <span>• {{ user.first_name }} {{ user.last_name }}</span>
+                    {% endif %}
+                </p>
+                {% if user.profile.bio %}
+                    <p class="text-xs text-zinc-300 line-clamp-1 italic">"{{ user.profile.bio }}"</p>
+                {% endif %}
+                <div class="pt-0.5">
+                    <a href="{% url 'user_profile' username=user.username %}" class="inline-flex items-center gap-1 text-[11px] text-zinc-300 hover:text-white font-semibold transition">
+                        <i data-lucide="external-link" class="w-3 h-3"></i> ดูหน้าโปรไฟล์สาธารณะของฉัน →
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Summary Stats Grid -->
+        <div class="grid grid-cols-3 gap-2.5 pt-2 border-t border-zinc-800">
+            <div class="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-center shadow-inner">
+                <span class="block text-xl font-black text-white">{{ total_posts }}</span>
+                <span class="text-[11px] font-semibold text-zinc-400">โพสต์</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-center shadow-inner">
+                <span class="block text-xl font-black text-white">{{ total_checkins }}</span>
+                <span class="text-[11px] font-semibold text-zinc-400">จุดเช็คอิน</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-center shadow-inner">
+                <span class="block text-xl font-black text-white">{{ total_likes_received }}</span>
+                <span class="text-[11px] font-semibold text-zinc-400">ถูกใจ</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Setting Menu Group 1: บัญชีและความปลอดภัย -->
+    <div class="space-y-2">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-400 px-1 flex items-center gap-1.5">
+            <i data-lucide="shield" class="w-3.5 h-3.5 text-zinc-300"></i> บัญชีและความปลอดภัย
+        </h2>
+        <div class="rounded-3xl glass-card border border-white/[0.08] overflow-hidden divide-y divide-zinc-800 shadow-xl">
+            <!-- Edit Profile Link -->
+            <a href="{% url 'settings_profile' %}" class="p-4 flex items-center justify-between hover:bg-zinc-900/80 transition group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                        <i data-lucide="user" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white group-hover:text-zinc-200 transition">แก้ไขข้อมูลโปรไฟล์</h3>
+                        <p class="text-[11px] text-zinc-400">แก้ไขชื่อจริง นามสกุล และอีเมล</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-transform"></i>
+            </a>
+
+            <!-- Change Password Link -->
+            <a href="{% url 'settings_password' %}" class="p-4 flex items-center justify-between hover:bg-zinc-900/80 transition group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                        <i data-lucide="lock" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white group-hover:text-zinc-200 transition">ความปลอดภัยและรหัสผ่าน</h3>
+                        <p class="text-[11px] text-zinc-400">เปลี่ยนรหัสผ่านเพื่อความปลอดภัยของบัญชี</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-transform"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Setting Menu Group 2: การใช้งานและระบบ -->
+    <div class="space-y-2">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-400 px-1 flex items-center gap-1.5">
+            <i data-lucide="sliders" class="w-3.5 h-3.5 text-zinc-300"></i> การใช้งานและระบบ
+        </h2>
+        <div class="rounded-3xl glass-card border border-white/[0.08] overflow-hidden divide-y divide-zinc-800 shadow-xl">
+            <!-- GPS Location Link -->
+            <a href="{% url 'settings_gps' %}" class="p-4 flex items-center justify-between hover:bg-zinc-900/80 transition group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                        <i data-lucide="navigation" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white group-hover:text-zinc-200 transition">ระบบพิกัดและตำแหน่ง GPS</h3>
+                        <p class="text-[11px] text-zinc-400">ทดสอบดึงพิกัดสด และเปิด/ปิดตรวจจับอัตโนมัติ</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-transform"></i>
+            </a>
+
+            <!-- Map Theme Link -->
+            <a href="{% url 'settings_map' %}" class="p-4 flex items-center justify-between hover:bg-zinc-900/80 transition group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                        <i data-lucide="map" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white group-hover:text-zinc-200 transition">สไตล์แผนที่ & การแสดงผล</h3>
+                        <p class="text-[11px] text-zinc-400">เลือกโหมดมืด มาตรฐาน หรือภาพดาวเทียม</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-transform"></i>
+            </a>
+
+            <!-- Data & Backup Link -->
+            <a href="{% url 'settings_data' %}" class="p-4 flex items-center justify-between hover:bg-zinc-900/80 transition group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                        <i data-lucide="database" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white group-hover:text-zinc-200 transition">จัดการข้อมูล & สำรองข้อมูล</h3>
+                        <p class="text-[11px] text-zinc-400">ส่งออกข้อมูลการเดินทาง (JSON) และล้างแคช</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-transform"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Setting Menu Group 3: ข้อมูลแอป -->
+    <div class="space-y-2">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-400 px-1 flex items-center gap-1.5">
+            <i data-lucide="info" class="w-3.5 h-3.5 text-zinc-300"></i> ข้อมูลแอปพลิเคชัน
+        </h2>
+        <div class="rounded-3xl glass-card border border-white/[0.08] overflow-hidden shadow-xl">
+            <a href="{% url 'settings_about' %}" class="p-4 flex items-center justify-between hover:bg-zinc-900/80 transition group">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white group-hover:text-zinc-200 transition">เกี่ยวกับ "ที่นี่มีอะไร" (TINIMEEARAI)</h3>
+                        <p class="text-[11px] text-zinc-400">เวอร์ชัน v1.0.0 • Travel Community</p>
+                    </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-transform"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Logout Button -->
+    <div class="pt-2">
+        <button type="button" id="logout-confirm-btn" class="w-full py-3.5 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-rose-400 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-[0.98] shadow-lg">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span>ออกจากระบบ (Logout)</span>
+        </button>
+    </div>
+
+</div>
+
+<!-- Logout Confirmation Modal -->
+<div id="logout-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="max-w-sm w-full glass-card p-6 rounded-[2rem] border border-white/10 shadow-2xl space-y-4 text-center animate-scale-up">
+        <div class="w-12 h-12 rounded-2xl bg-rose-950/40 border border-rose-800/50 text-rose-400 flex items-center justify-center mx-auto">
+            <i data-lucide="log-out" class="w-6 h-6"></i>
+        </div>
+        <div>
+            <h3 class="text-base font-bold text-white">ยืนยันการออกจากระบบ?</h3>
+            <p class="text-xs text-zinc-400 mt-1">คุณจะต้องเข้าสู่ระบบใหม่อีกครั้งเพื่อเข้าใช้งาน</p>
+        </div>
+        <div class="flex items-center gap-2.5 pt-2">
+            <button type="button" id="cancel-logout-btn" class="flex-1 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold transition">
+                ยกเลิก
+            </button>
+            <a href="{% url 'logout' %}" class="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg text-center">
+                ออกจากระบบ
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const logoutBtn = document.getElementById('logout-confirm-btn');
+    const logoutModal = document.getElementById('logout-modal');
+    const cancelLogoutBtn = document.getElementById('cancel-logout-btn');
+
+    if (logoutBtn && logoutModal && cancelLogoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            logoutModal.classList.remove('hidden');
+            logoutModal.classList.add('flex');
+        });
+        cancelLogoutBtn.addEventListener('click', () => {
+            logoutModal.classList.add('hidden');
+            logoutModal.classList.remove('flex');
+        });
+        logoutModal.addEventListener('click', (e) => {
+            if (e.target === logoutModal) {
+                logoutModal.classList.add('hidden');
+                logoutModal.classList.remove('flex');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,588 @@
+{% extends 'base.html' %}
+
+{% block title %}สร้างโพสต์ใหม่ & เช็คอิน - ที่นี่มีอะไร{% endblock %}
+
+{% block floating_action_button %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    #mini-map {
+        height: 220px;
+        width: 100%;
+        border-radius: 1.25rem;
+        z-index: 10;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-lg mx-auto pb-12">
+    <!-- Header Bar -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                <span>สร้างโพสต์ใหม่</span>
+                <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 font-bold uppercase tracking-wider">Multi-Photo</span>
+            </h1>
+            <p class="text-xs text-zinc-400 mt-0.5">เพิ่มรูปภาพได้หลายรูปเพื่อแสดงเป็น Carousel 📸</p>
+        </div>
+        <a href="{% url 'post_list' %}" class="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white active:scale-90 transition shadow-md">
+            <i data-lucide="x" class="w-5 h-5"></i>
+        </a>
+    </div>
+
+    <!-- Main Create Post Form -->
+    <form method="POST" enctype="multipart/form-data" id="create-post-form" class="space-y-5">
+        {% csrf_token %}
+
+        <!-- STEP 1: MULTI-PHOTO SELECTION & CAROUSEL PREVIEW -->
+        <div class="space-y-3 p-5 rounded-[2rem] glass-card border border-white/[0.08] shadow-xl">
+            <div class="flex items-center justify-between">
+                <label class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
+                    <i data-lucide="images" class="w-4 h-4 text-zinc-300"></i>
+                    <span>รูปภาพสถานที่ (เลือกได้หลายรูป) <span class="text-rose-400">*</span></span>
+                </label>
+                <span id="photo-count-badge" class="text-[11px] text-zinc-400 font-medium">ยังไม่ได้เลือกรูป</span>
+            </div>
+
+            <!-- Actual Multi-File Input -->
+            <input type="file" name="images" id="multi-images-input" accept="image/jpeg,image/png,image/webp" multiple class="hidden">
+            <input type="file" id="camera-file-input" accept="image/*" capture="environment" class="hidden">
+
+            <!-- Action Buttons: Camera / Album -->
+            <div id="photo-choice-box" class="grid grid-cols-2 gap-3 pt-1">
+                <!-- Camera Button -->
+                <button type="button" id="btn-trigger-camera" class="p-5 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border-2 border-dashed border-zinc-700 hover:border-zinc-500 text-center space-y-2.5 transition group active:scale-95 shadow-lg">
+                    <div class="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center mx-auto group-hover:scale-110 transition-transform shadow-md">
+                        <i data-lucide="camera" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white group-hover:text-zinc-200 transition">เปิดกล้องถ่ายรูป</h3>
+                        <p class="text-[10px] text-zinc-400 mt-0.5">ถ่ายภาพใหม่</p>
+                    </div>
+                </button>
+
+                <!-- Album Button (Multi-select) -->
+                <button type="button" id="btn-trigger-gallery" class="p-5 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border-2 border-dashed border-zinc-700 hover:border-zinc-500 text-center space-y-2.5 transition group active:scale-95 shadow-lg">
+                    <div class="w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center mx-auto group-hover:scale-110 transition-transform shadow-md">
+                        <i data-lucide="layers" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-white group-hover:text-zinc-200 transition">เลือกหลายรูปจากคลัง</h3>
+                        <p class="text-[10px] text-zinc-400 mt-0.5">เลือกได้สูงสุด 10 รูป</p>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Multi-Image Carousel Live Preview Box -->
+            <div id="image-preview-container" class="hidden space-y-3">
+                <div class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-white/10 group bg-black">
+                    <img id="image-preview" src="#" alt="Preview" class="w-full h-full object-cover" />
+                    
+                    <!-- Carousel Preview Badge Overlay -->
+                    <div class="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/10 text-[10px] text-white font-mono flex items-center gap-1">
+                        <i data-lucide="layers" class="w-3 h-3"></i>
+                        <span id="preview-active-index">1/1</span>
+                    </div>
+
+                    <!-- Floating Control Pill -->
+                    <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between p-2 rounded-2xl bg-black/85 backdrop-blur-md border border-white/10 shadow-2xl">
+                        <span class="text-xs text-white font-bold flex items-center gap-1.5 px-2 truncate">
+                            <i data-lucide="check-circle-2" class="w-4 h-4 text-white shrink-0"></i>
+                            <span id="preview-summary-text">พร้อมแชร์ Carousel</span>
+                        </span>
+                        <button type="button" id="btn-add-more-images" class="px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition flex items-center gap-1.5 active:scale-95 shrink-0">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> เพิ่มรูปอีก
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Thumbnails Strip -->
+                <div id="thumbnails-strip" class="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar"></div>
+            </div>
+
+            {% if form.image.errors %}
+                <p class="text-xs text-rose-400 mt-1">{{ form.image.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- STEP 2: CAPTION -->
+        <div class="space-y-2 p-5 rounded-[2rem] glass-card border border-white/[0.08] shadow-xl">
+            <div class="flex justify-between items-center">
+                <label for="caption-input" class="block text-xs font-bold text-zinc-200 flex items-center gap-1.5">
+                    <i data-lucide="edit-3" class="w-4 h-4 text-zinc-300"></i>
+                    <span>บอกเล่าความประทับใจ <span class="text-rose-400">*</span></span>
+                </label>
+                <span id="char-counter" class="text-[11px] text-zinc-400 font-mono">0 ตัวอักษร</span>
+            </div>
+            {{ form.caption }}
+            
+            <!-- Quick Ideas for Caption -->
+            <div class="space-y-1.5 pt-1">
+                <span class="text-[11px] text-zinc-400 font-medium block">⚡ ข้อความด่วน:</span>
+                <div class="flex flex-wrap gap-1.5">
+                    <button type="button" class="caption-phrase-btn px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white text-[11px] font-medium transition active:scale-95">
+                        วิวดีจัดดด 🌲
+                    </button>
+                    <button type="button" class="caption-phrase-btn px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white text-[11px] font-medium transition active:scale-95">
+                        มุมถ่ายรูปอย่างตึง 📸
+                    </button>
+                    <button type="button" class="caption-phrase-btn px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white text-[11px] font-medium transition active:scale-95">
+                        สายลุยต้องมาโดน 🔥
+                    </button>
+                    <button type="button" class="caption-phrase-btn px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white text-[11px] font-medium transition active:scale-95">
+                        บรรยากาศชิลมากกก ☕
+                    </button>
+                </div>
+            </div>
+
+            {% if form.caption.errors %}
+                <p class="text-xs text-rose-400 mt-1">{{ form.caption.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        <!-- STEP 3: TAGS -->
+        <div class="space-y-3 p-5 rounded-[2rem] glass-card border border-white/[0.08] shadow-xl">
+            <div class="flex items-center justify-between">
+                <label class="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
+                    <i data-lucide="tag" class="w-4 h-4 text-zinc-300"></i>
+                    <span>แท็กหมวดหมู่ (แตะเลือกได้เลย)</span>
+                </label>
+                <span class="text-[10px] text-zinc-400">เลือกได้หลายแท็ก</span>
+            </div>
+
+            <!-- Clickable Tag Chips -->
+            <div class="flex flex-wrap gap-2" id="tag-chips-container">
+                <button type="button" data-tag="จุดชมวิว" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    🏔️ จุดชมวิว
+                </button>
+                <button type="button" data-tag="ธรรมชาติ" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    🌲 ธรรมชาติ
+                </button>
+                <button type="button" data-tag="คาเฟ่" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    ☕ คาเฟ่ & ชิล
+                </button>
+                <button type="button" data-tag="ทะเล" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    🌊 ทะเล & เกาะ
+                </button>
+                <button type="button" data-tag="ภูเขา" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    ⛰️ ภูเขา & ดอย
+                </button>
+                <button type="button" data-tag="พิกัดลับ" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    🗺️ พิกัดลับ
+                </button>
+                <button type="button" data-tag="สายลุย" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    🏍️ สายลุย
+                </button>
+                <button type="button" data-tag="ของกินอร่อย" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    🍜 ของกินอร่อย
+                </button>
+                <button type="button" data-tag="ถ่ายรูปสวย" class="tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700">
+                    📸 ถ่ายรูปสวย
+                </button>
+            </div>
+
+            <div class="relative pt-1">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400">
+                    <i data-lucide="hash" class="w-4 h-4"></i>
+                </div>
+                {{ form.tags }}
+            </div>
+        </div>
+
+        <!-- STEP 4: GEOLOCATION & LOCATION NAME -->
+        <div class="p-5 rounded-[2rem] glass-card border border-white/[0.08] space-y-4 shadow-xl">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-zinc-800 border border-zinc-700 text-white flex items-center justify-center shadow-md">
+                        <i data-lucide="map-pin" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white">เช็คอินพิกัดตำแหน่ง</h3>
+                        <p class="text-[11px] text-zinc-400">ดึงพิกัด GPS อัตโนมัติ หรือปักหมุด</p>
+                    </div>
+                </div>
+
+                <!-- GPS Trigger Button -->
+                <button type="button" id="btn-get-location" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-xs font-bold transition active:scale-90 shadow-md">
+                    <i data-lucide="crosshair" id="location-icon" class="w-4 h-4"></i>
+                    <span id="location-btn-text">ดึงพิกัด GPS</span>
+                </button>
+            </div>
+
+            <!-- Location Name Input Field -->
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400">
+                    <i data-lucide="navigation" class="w-4 h-4"></i>
+                </div>
+                {{ form.location_name }}
+            </div>
+
+            <!-- Hidden Coordinates Inputs -->
+            {{ form.latitude }}
+            {{ form.longitude }}
+
+            <!-- Geolocation Status Display Badge -->
+            <div id="geo-status-box" class="hidden rounded-2xl p-3.5 text-xs transition-all duration-300"></div>
+
+            <!-- Interactive Mini Map (Leaflet) -->
+            <div id="map-wrapper" class="hidden space-y-2">
+                <div class="flex justify-between items-center text-[11px] text-zinc-400 px-1 font-medium">
+                    <span>🗺️ คุณสามารถลากหมุดเพื่อปรับพิกัด หรือแตะเพื่อเลือกจุดใหม่</span>
+                </div>
+                <div id="mini-map" class="border border-zinc-700/80 shadow-2xl"></div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="pt-2">
+            <button type="submit" id="btn-submit" class="w-full py-4 px-6 rounded-2xl bg-white hover:bg-zinc-200 text-black font-black text-base shadow-2xl shadow-white/10 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group min-h-[54px]">
+                <i data-lucide="send" id="submit-icon" class="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"></i>
+                <span id="submit-text">แชร์เรื่องราว "ที่นี่มีอะไร"</span>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const multiFileInput = document.getElementById('multi-images-input');
+    const cameraInput = document.getElementById('camera-file-input');
+
+    const btnCamera = document.getElementById('btn-trigger-camera');
+    const btnGallery = document.getElementById('btn-trigger-gallery');
+    const btnAddMore = document.getElementById('btn-add-more-images');
+    const photoChoiceBox = document.getElementById('photo-choice-box');
+    const previewContainer = document.getElementById('image-preview-container');
+    const imagePreview = document.getElementById('image-preview');
+    const thumbnailsStrip = document.getElementById('thumbnails-strip');
+    const photoCountBadge = document.getElementById('photo-count-badge');
+    const previewActiveIndex = document.getElementById('preview-active-index');
+    const previewSummaryText = document.getElementById('preview-summary-text');
+
+    const captionInput = document.getElementById('caption-input');
+    const charCounter = document.getElementById('char-counter');
+    const tagsInput = document.getElementById('tags-input');
+    const tagChips = document.querySelectorAll('.tag-chip');
+    const captionPhraseBtns = document.querySelectorAll('.caption-phrase-btn');
+
+    const btnGetLocation = document.getElementById('btn-get-location');
+    const locationIcon = document.getElementById('location-icon');
+    const locationBtnText = document.getElementById('location-btn-text');
+    const locationNameInput = document.getElementById('location-name-input');
+    const latitudeInput = document.getElementById('latitude-input');
+    const longitudeInput = document.getElementById('longitude-input');
+    const geoStatusBox = document.getElementById('geo-status-box');
+    const mapWrapper = document.getElementById('map-wrapper');
+
+    const form = document.getElementById('create-post-form');
+    const btnSubmit = document.getElementById('btn-submit');
+    const submitText = document.getElementById('submit-text');
+
+    let selectedFiles = [];
+    let currentPreviewIndex = 0;
+    let miniMap = null;
+    let marker = null;
+
+    function syncInputFiles() {
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
+        multiFileInput.files = dt.files;
+    }
+
+    function renderThumbnails() {
+        thumbnailsStrip.innerHTML = '';
+        if (selectedFiles.length === 0) {
+            photoChoiceBox.classList.remove('hidden');
+            previewContainer.classList.add('hidden');
+            photoCountBadge.textContent = 'ยังไม่ได้เลือกรูป';
+            photoCountBadge.className = 'text-[11px] text-zinc-400 font-medium';
+            return;
+        }
+
+        photoChoiceBox.classList.add('hidden');
+        previewContainer.classList.remove('hidden');
+        photoCountBadge.textContent = `เลือกแล้ว ${selectedFiles.length} รูปภาพ ✨`;
+        photoCountBadge.className = 'text-[11px] text-white font-bold';
+
+        if (currentPreviewIndex >= selectedFiles.length) {
+            currentPreviewIndex = selectedFiles.length - 1;
+        }
+
+        previewActiveIndex.textContent = `${currentPreviewIndex + 1}/${selectedFiles.length}`;
+        previewSummaryText.textContent = selectedFiles.length > 1 ? `Carousel ${selectedFiles.length} รูปภาพ` : 'รูปภาพเดี่ยว';
+
+        // Update main preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            imagePreview.src = e.target.result;
+        };
+        reader.readAsDataURL(selectedFiles[currentPreviewIndex]);
+
+        // Render thumbnails
+        selectedFiles.forEach((file, idx) => {
+            const thumbWrapper = document.createElement('div');
+            thumbWrapper.className = `relative w-16 h-16 rounded-xl overflow-hidden shrink-0 cursor-pointer border-2 transition ${idx === currentPreviewIndex ? 'border-white ring-2 ring-white/30' : 'border-zinc-800 opacity-70 hover:opacity-100'}`;
+
+            const img = document.createElement('img');
+            img.className = 'w-full h-full object-cover';
+            const r = new FileReader();
+            r.onload = (e) => { img.src = e.target.result; };
+            r.readAsDataURL(file);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'absolute top-1 right-1 w-5 h-5 rounded-full bg-black/80 text-white flex items-center justify-center text-[10px] hover:bg-rose-600 transition';
+            removeBtn.innerHTML = '✕';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectedFiles.splice(idx, 1);
+                syncInputFiles();
+                renderThumbnails();
+            });
+
+            thumbWrapper.addEventListener('click', () => {
+                currentPreviewIndex = idx;
+                renderThumbnails();
+            });
+
+            thumbWrapper.appendChild(img);
+            thumbWrapper.appendChild(removeBtn);
+            thumbnailsStrip.appendChild(thumbWrapper);
+        });
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function addFiles(files) {
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            if (f.type.startsWith('image/')) {
+                selectedFiles.push(f);
+            }
+        }
+        syncInputFiles();
+        renderThumbnails();
+
+        // Auto trigger GPS if not yet filled
+        if (latitudeInput && !latitudeInput.value && btnGetLocation) {
+            btnGetLocation.click();
+        }
+    }
+
+    if (btnGallery && multiFileInput) {
+        btnGallery.addEventListener('click', () => {
+            multiFileInput.click();
+        });
+    }
+
+    if (btnAddMore && multiFileInput) {
+        btnAddMore.addEventListener('click', () => {
+            multiFileInput.click();
+        });
+    }
+
+    if (multiFileInput) {
+        multiFileInput.addEventListener('change', () => {
+            if (multiFileInput.files && multiFileInput.files.length > 0) {
+                addFiles(multiFileInput.files);
+            }
+        });
+    }
+
+    if (btnCamera && cameraInput) {
+        btnCamera.addEventListener('click', () => {
+            cameraInput.click();
+        });
+        cameraInput.addEventListener('change', () => {
+            if (cameraInput.files && cameraInput.files.length > 0) {
+                addFiles(cameraInput.files);
+            }
+        });
+    }
+
+    // Caption phrase chips
+    captionPhraseBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const phrase = btn.textContent.trim();
+            if (captionInput.value.trim()) {
+                captionInput.value += ' ' + phrase;
+            } else {
+                captionInput.value = phrase;
+            }
+            captionInput.dispatchEvent(new Event('input'));
+            captionInput.focus();
+        });
+    });
+
+    if (captionInput && charCounter) {
+        captionInput.addEventListener('input', () => {
+            charCounter.textContent = `${captionInput.value.length} ตัวอักษร`;
+        });
+    }
+
+    // Interactive Tag Chips
+    function updateTagChipsUI() {
+        const currentTags = (tagsInput.value || '').split(',').map(t => t.trim()).filter(Boolean);
+        tagChips.forEach(chip => {
+            const tagValue = chip.dataset.tag;
+            if (currentTags.includes(tagValue)) {
+                chip.className = 'tag-chip px-3 py-1.5 rounded-xl border text-xs font-bold transition active:scale-95 bg-white text-black border-white shadow-md shadow-white/10';
+            } else {
+                chip.className = 'tag-chip px-3 py-1.5 rounded-xl border text-xs font-semibold transition active:scale-95 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700';
+            }
+        });
+    }
+
+    tagChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            const tagValue = chip.dataset.tag;
+            let currentTags = (tagsInput.value || '').split(',').map(t => t.trim()).filter(Boolean);
+
+            if (currentTags.includes(tagValue)) {
+                currentTags = currentTags.filter(t => t !== tagValue);
+            } else {
+                currentTags.push(tagValue);
+            }
+
+            tagsInput.value = currentTags.join(', ');
+            updateTagChipsUI();
+        });
+    });
+
+    if (tagsInput) {
+        tagsInput.addEventListener('input', updateTagChipsUI);
+    }
+
+    // Geolocation & Mini Map
+    function setupMiniMap(lat, lng) {
+        mapWrapper.classList.remove('hidden');
+        
+        if (!miniMap) {
+            miniMap = L.map('mini-map').setView([lat, lng], 15);
+            if (window.getMapTileLayer) {
+                window.getMapTileLayer().addTo(miniMap);
+            } else {
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    className: 'dark-map-tiles',
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(miniMap);
+            }
+
+            marker = L.marker([lat, lng], { draggable: true }).addTo(miniMap);
+            
+            marker.on('dragend', function () {
+                const position = marker.getLatLng();
+                updateCoordinates(position.lat, position.lng, true);
+            });
+
+            miniMap.on('click', function(e) {
+                marker.setLatLng(e.latlng);
+                updateCoordinates(e.latlng.lat, e.latlng.lng, true);
+            });
+        } else {
+            miniMap.setView([lat, lng], 15);
+            marker.setLatLng([lat, lng]);
+            miniMap.invalidateSize();
+        }
+    }
+
+    async function updateCoordinates(lat, lng, fetchName = false) {
+        const formattedLat = parseFloat(lat).toFixed(6);
+        const formattedLng = parseFloat(lng).toFixed(6);
+        latitudeInput.value = formattedLat;
+        longitudeInput.value = formattedLng;
+
+        showGeoStatus('success', `📍 พิกัด: ละติจูด <strong>${formattedLat}</strong>, ลองจิจูด <strong>${formattedLng}</strong>`);
+
+        if (fetchName && (!locationNameInput.value.trim() || locationNameInput.dataset.autofilled)) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${formattedLat}&lon=${formattedLng}&zoom=16`, {
+                    headers: { 'Accept-Language': 'th,en' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const addr = data.address || {};
+                    const place = addr.tourism || addr.historic || addr.attraction || addr.natural || addr.amenity || addr.leisure || addr.suburb || addr.neighbourhood || addr.city || addr.town || addr.municipality || addr.village || addr.county || addr.state || addr.country;
+                    const finalName = place || (data.display_name ? data.display_name.split(',')[0].trim() : '');
+                    if (finalName) {
+                        locationNameInput.value = finalName;
+                        locationNameInput.dataset.autofilled = 'true';
+                    }
+                }
+            } catch (e) {
+                console.log('Reverse geocode error:', e);
+            }
+        }
+    }
+
+    if (btnGetLocation) {
+        btnGetLocation.addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                showGeoStatus('error', 'เบราว์เซอร์ของคุณไม่รองรับ Geolocation API');
+                return;
+            }
+
+            btnGetLocation.disabled = true;
+            locationBtnText.textContent = 'กำลังหาพิกัด...';
+            locationIcon.classList.add('animate-spin');
+            showGeoStatus('loading', '🛰️ กำลังเชื่อมต่อดาวเทียมและดึงค่าพิกัดปัจจุบัน...');
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+
+                    btnGetLocation.disabled = false;
+                    locationBtnText.textContent = 'อัปเดตพิกัด';
+                    locationIcon.classList.remove('animate-spin');
+
+                    await updateCoordinates(lat, lng, true);
+                    setupMiniMap(lat, lng);
+                },
+                (error) => {
+                    btnGetLocation.disabled = false;
+                    locationBtnText.textContent = 'ลองอีกครั้ง';
+                    locationIcon.classList.remove('animate-spin');
+                    let msg = 'ไม่สามารถระบุพิกัดได้ กรุณาอนุญาต Location Permission';
+                    if (error.code === error.TIMEOUT) msg = 'หมดเวลาค้นหาพิกัด กรุณาลองใหม่อีกครั้ง';
+                    showGeoStatus('error', msg);
+                },
+                { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+            );
+        });
+    }
+
+    function showGeoStatus(type, message) {
+        geoStatusBox.classList.remove('hidden');
+        if (type === 'success') {
+            geoStatusBox.className = 'rounded-2xl p-3.5 text-xs bg-zinc-900 border border-zinc-700 text-white flex items-start gap-2.5';
+            geoStatusBox.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-white shrink-0 mt-0.5"></i><div>${message}</div>`;
+        } else if (type === 'error') {
+            geoStatusBox.className = 'rounded-2xl p-3.5 text-xs bg-rose-950/80 border border-rose-800/80 text-rose-200 flex items-start gap-2.5';
+            geoStatusBox.innerHTML = `<i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400 shrink-0 mt-0.5"></i><div>${message}</div>`;
+        } else {
+            geoStatusBox.className = 'rounded-2xl p-3.5 text-xs bg-zinc-900 border border-zinc-800 text-zinc-300 flex items-start gap-2.5';
+            geoStatusBox.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 text-white animate-spin shrink-0 mt-0.5"></i><div>${message}</div>`;
+        }
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            if (selectedFiles.length === 0) {
+                e.preventDefault();
+                alert('กรุณาเลือกรูปภาพอย่างน้อย 1 รูป');
+                return;
+            }
+            btnSubmit.disabled = true;
+            btnSubmit.classList.add('opacity-80', 'cursor-not-allowed');
+            submitText.innerHTML = `<span class="inline-flex items-center gap-2"><i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> กำลังอัปโหลด ${selectedFiles.length} รูปภาพ...</span>`;
+            if (window.lucide) window.lucide.createIcons();
+        });
+    }
+});
+</script>
+{% endblock %}
