@@ -119,23 +119,15 @@
 
     <!-- Clean Modern Feed Tabs (Seamless Underline Stream Selector) -->
     <div class="flex items-center border-b border-zinc-800/80 px-1 overflow-x-auto no-scrollbar">
-        <a href="?feed=smart{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'smart' and not nearby %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
+        <a href="?feed=smart{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'smart' %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
             <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
             <span>สำหรับคุณ</span>
         </a>
-        <a href="javascript:void(0)" onclick="filterNearbyFeed()" class="flex-1 min-w-[100px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if nearby %}border-emerald-400 text-emerald-400 font-extrabold{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
-            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-400"></i>
-            <span>ใกล้ฉัน (10km)</span>
-        </a>
-        <a href="?feed=following{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'following' and not nearby %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
+        <a href="?feed=following{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'following' %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
             <i data-lucide="users" class="w-3.5 h-3.5"></i>
             <span>กำลังติดตาม</span>
         </a>
-        <a href="?feed=top_rated{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'top_rated' and not nearby %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
-            <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400 fill-amber-400"></i>
-            <span>คะแนนสูงสุด</span>
-        </a>
-        <a href="?feed=explore{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'explore' and not nearby %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
+        <a href="?feed=explore{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'explore' %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
             <i data-lucide="compass" class="w-3.5 h-3.5"></i>
             <span>สำรวจล่าสุด</span>
         </a>
@@ -229,33 +221,15 @@
                     {% endfor %}
                 </div>
 
-                <!-- Star Rating Overlay Badge Top Left on Photo -->
-                <div class="absolute top-3 left-3 z-30 flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/80 backdrop-blur-md border border-amber-500/40 text-amber-400 font-extrabold text-xs shadow-2xl pointer-events-none">
-                    <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400 text-amber-400"></i>
-                    <span class="text-white font-mono">{{ post.avg_rating|floatformat:1 }}</span>
-                    {% if post.review_count > 0 %}
-                        <span class="text-[10px] text-zinc-400 font-normal font-mono">({{ post.review_count }})</span>
-                    {% endif %}
-                </div>
-
-                <!-- Location, Distance & Weather Overlay Badges -->
-                <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-                    {% if post.location_name %}
-                    <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
-                        <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
-                        <span>{{ post.location_name }}</span>
-                        {% if post.distance_km is not None %}
-                            <span class="text-[11px] text-emerald-400 font-extrabold ml-1 border-l border-white/20 pl-1.5">📍 {{ post.distance_km }} กม.</span>
-                        {% endif %}
+                <!-- Minimalist Location Pill on Bottom Left -->
+                {% if post.location_name %}
+                <div class="absolute bottom-3 left-3 z-20 pointer-events-none max-w-[70%]">
+                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-white text-[11px] font-medium shadow-lg truncate">
+                        <i data-lucide="map-pin" class="w-3 h-3 text-zinc-300 shrink-0"></i>
+                        <span class="truncate">{{ post.location_name }}</span>
                     </div>
-                    {% endif %}
-
-                    {% if post.weather %}
-                    <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-amber-500/30 text-amber-300 text-xs font-extrabold flex items-center gap-1.5 shadow-xl">
-                        <span>{{ post.weather.display }}</span>
-                    </div>
-                    {% endif %}
                 </div>
+                {% endif %}
 
                 <!-- Top Right Overlay: Bookmark Ribbon Button -->
                 {% if user.is_authenticated %}
@@ -267,8 +241,8 @@
                 {% endif %}
 
                 {% if post.get_all_image_urls|length > 1 %}
-                <!-- Photo Count Badge Top Left (Positioned beside Star Badge) -->
-                <div class="absolute top-3 left-24 z-20 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] text-white font-mono font-medium shadow-lg pointer-events-none">
+                <!-- Photo Count Badge Top Left -->
+                <div class="absolute top-3 left-3 z-20 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] text-white font-mono font-medium shadow-lg pointer-events-none">
                     <span class="carousel-counter">1/{{ post.get_all_image_urls|length }}</span>
                 </div>
 
@@ -315,13 +289,6 @@
                         <a href="{% url 'post_detail' pk=post.pk %}#comments" class="flex items-center gap-1.5 text-zinc-400 hover:text-white transition font-medium" title="ดูความคิดเห็น">
                             <i data-lucide="message-circle" class="w-4 h-4"></i>
                             <span>{{ post.total_comments }}</span>
-                        </a>
-                        <a href="{% url 'post_detail' pk=post.pk %}#reviews" class="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition font-semibold" title="คะแนนรีวิวสถานที่">
-                            <i data-lucide="star" class="w-4 h-4 fill-amber-400 text-amber-400"></i>
-                            <span>{{ post.avg_rating|floatformat:1 }}</span>
-                            {% if post.review_count > 0 %}
-                                <span class="text-zinc-500 font-normal">({{ post.review_count }})</span>
-                            {% endif %}
                         </a>
                         <span class="flex items-center gap-1.5 text-zinc-400 font-medium">
                             <i data-lucide="eye" class="w-4 h-4"></i>
@@ -530,21 +497,5 @@
         }, { timeout: 8000, maximumAge: 600000 });
     }
 });
-
-function filterNearbyFeed() {
-    if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(function(pos) {
-            const urlParams = new URLSearchParams(window.location.search);
-            urlParams.set('lat', pos.coords.latitude);
-            urlParams.set('lng', pos.coords.longitude);
-            urlParams.set('nearby', '1');
-            window.location.search = urlParams.toString();
-        }, function(err) {
-            alert("กรุณาอนุญาตสิทธิ์เข้าถึงตำแหน่ง GPS เพื่อใช้งานฟังก์ชันใกล้ฉัน");
-        });
-    } else {
-        alert("เบราว์เซอร์ของคุณไม่รองรับ GPS Geolocation");
-    }
-}
 </script>
 {% endblock %}

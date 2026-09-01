@@ -171,8 +171,14 @@
             <!-- Slides Strip -->
             <div class="carousel-slides flex w-full h-full transition-transform duration-300 ease-out">
                 {% for img_url in post.get_all_image_urls %}
-                    <div class="carousel-slide min-w-full h-full relative shrink-0">
-                        <img src="{{ img_url }}" alt="{{ post.location_name|default:post.caption|truncatechars:30 }}" class="w-full h-full object-cover" />
+                    <div class="carousel-slide min-w-full h-full relative shrink-0 cursor-zoom-in group/slide" onclick="openPostLightbox({{ forloop.counter0 }})">
+                        <img src="{{ img_url }}" alt="{{ post.location_name|default:post.caption|truncatechars:30 }}" class="w-full h-full object-cover transition-transform duration-300 group-hover/slide:scale-[1.01]" />
+                        <div class="absolute inset-0 bg-black/0 group-hover/slide:bg-black/10 transition-colors flex items-center justify-center pointer-events-none">
+                            <span class="opacity-0 group-hover/slide:opacity-100 transition-opacity bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-xs font-bold flex items-center gap-1.5 shadow-2xl">
+                                <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+                                <span>คลิกเพื่อดูภาพเต็ม</span>
+                            </span>
+                        </div>
                     </div>
                 {% empty %}
                     <div class="carousel-slide min-w-full h-full flex items-center justify-center text-zinc-600">
@@ -181,24 +187,15 @@
                 {% endfor %}
             </div>
 
-            <!-- Location, Distance & Weather Overlay Badges -->
-            <div class="absolute bottom-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-                {% if post.location_name %}
-                    <span class="px-3.5 py-1.5 rounded-2xl bg-black/85 backdrop-blur-md border border-white/10 text-white text-xs font-bold shadow-2xl flex items-center gap-1.5">
-                        <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
-                        <span>{{ post.location_name }}</span>
-                        {% if post.distance_km is not None %}
-                            <span class="text-[11px] text-emerald-400 font-extrabold ml-1 border-l border-white/20 pl-1.5">📍 {{ post.distance_km }} กม.</span>
-                        {% endif %}
-                    </span>
-                {% endif %}
-
-                {% if post.weather %}
-                    <span class="px-3 py-1.5 rounded-2xl bg-black/85 backdrop-blur-md border border-amber-500/30 text-amber-300 text-xs font-extrabold shadow-2xl flex items-center gap-1.5">
-                        <span>{{ post.weather.display }}</span>
-                    </span>
-                {% endif %}
+            <!-- Sleek Minimalist Location Overlay on Photo -->
+            {% if post.location_name %}
+            <div class="absolute bottom-4 left-4 z-20 pointer-events-none max-w-[75%]">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-white text-xs font-medium shadow-lg truncate">
+                    <i data-lucide="map-pin" class="w-3.5 h-3.5 text-zinc-300 shrink-0"></i>
+                    <span class="truncate">{{ post.location_name }}</span>
+                </div>
             </div>
+            {% endif %}
 
             <!-- Top Right Overlay: Bookmark Ribbon Button -->
             {% if user.is_authenticated %}
@@ -278,23 +275,35 @@
             {% endif %}
 
             <!-- Location & Lazy Map Accordion with Google Maps Button on Bottom-Right -->
-            {% if post.has_coordinates %}
+            {% if post.has_coordinates or post.location_name %}
                 <div class="pt-2">
                     <div class="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-2">
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between gap-2">
                             <div class="flex items-center gap-2.5 min-w-0 pr-2">
                                 <div class="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white shrink-0">
-                                    <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                    <i data-lucide="map-pin" class="w-4 h-4 text-zinc-300"></i>
                                 </div>
                                 <div class="min-w-0">
-                                    <span class="text-xs font-bold text-white block truncate">{{ post.location_name|default:"พิกัด GPS" }}</span>
-                                    <span class="text-[10px] text-zinc-400 font-mono">GPS: {{ post.latitude }}, {{ post.longitude }}</span>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-xs font-bold text-white truncate">{{ post.location_name|default:"พิกัด GPS" }}</span>
+                                        {% if post.weather %}
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium shrink-0">
+                                                {{ post.weather.display }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    {% if post.has_coordinates %}
+                                        <span class="text-[10px] text-zinc-400 font-mono">GPS: {{ post.latitude }}, {{ post.longitude }}</span>
+                                    {% endif %}
                                 </div>
                             </div>
+                            {% if post.has_coordinates %}
                             <button type="button" id="btn-toggle-map" class="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-bold transition active:scale-95 shrink-0">
                                 <span id="toggle-map-text">ดูแผนที่</span>
                             </button>
+                            {% endif %}
                         </div>
+                        {% if post.has_coordinates %}
                         <div id="detail-map-wrapper" class="hidden space-y-2.5 pt-1">
                             <div id="detail-map" class="border border-zinc-800 shadow-xl"></div>
                             
@@ -307,184 +316,12 @@
                                 </a>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}
 
-        </div>
     </article>
-
-    <!-- Reviews & Ratings Section -->
-    <div id="reviews" class="rounded-[2rem] glass-card overflow-hidden shadow-2xl border border-white/[0.08] p-5 md:p-6 space-y-6">
-        <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-amber-950/40 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 shadow-lg">
-                    <i data-lucide="star" class="w-5 h-5 fill-amber-400"></i>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-white flex items-center gap-2">
-                        <span>คะแนน & รีวิวสถานที่</span>
-                    </h3>
-                    <p class="text-xs text-zinc-400">แบ่งปันประสบการณ์และความประทับใจของคุณ</p>
-                </div>
-            </div>
-
-            <div class="text-right">
-                <div class="text-xl font-black text-amber-400 flex items-center justify-end gap-1 font-mono">
-                    <i data-lucide="star" class="w-5 h-5 fill-amber-400"></i>
-                    <span id="detail-avg-rating">{{ post.avg_rating|floatformat:1 }}</span>
-                    <span class="text-xs text-zinc-400 font-normal">/ 5.0</span>
-                </div>
-                <span class="text-[11px] text-zinc-400 font-mono" id="detail-review-count">{{ post.review_count }} รีวิว</span>
-            </div>
-        </div>
-
-        <!-- Review Form Card -->
-        {% if user.is_authenticated %}
-            <div class="p-4 md:p-5 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-4">
-                <h4 class="text-xs font-bold text-white flex items-center gap-2">
-                    <i data-lucide="edit-3" class="w-4 h-4 text-amber-400"></i>
-                    <span>{% if user_review %}แก้ไขรีวิวของคุณ{% else %}ให้คะแนนและเขียนรีวิวสถานที่นี้{% endif %}</span>
-                </h4>
-
-                <form id="place-review-form" class="space-y-4">
-                    <input type="hidden" name="post_id" value="{{ post.pk }}">
-                    <input type="hidden" id="review-score-input" name="score" value="{{ user_review.score|default:5 }}">
-                    <input type="hidden" id="review-scenery-input" name="aspect_scenery" value="{{ user_review.aspect_scenery|default:'' }}">
-                    <input type="hidden" id="review-transport-input" name="aspect_transport" value="{{ user_review.aspect_transport|default:'' }}">
-
-                    <!-- Overall Rating Input (1-5 Stars) -->
-                    <div class="space-y-1.5">
-                        <label class="text-xs font-semibold text-zinc-300 block">คะแนนรวม <span class="text-rose-400">*</span></label>
-                        <div class="flex items-center gap-1.5 star-picker-group" data-target="review-score-input" data-selected="{{ user_review.score|default:5 }}">
-                            {% for i in "12345" %}
-                                <button type="button" data-value="{{ i }}" class="star-btn p-1.5 rounded-xl hover:bg-zinc-800 transition active:scale-95 text-zinc-600 hover:text-amber-400">
-                                    <i data-lucide="star" class="w-6 h-6"></i>
-                                </button>
-                            {% endfor %}
-                            <span class="text-xs font-bold text-amber-400 ml-2 star-picker-label font-mono">{{ user_review.score|default:5 }} / 5 ดาว</span>
-                        </div>
-                    </div>
-
-                    <!-- Aspect Scores (Scenery & Transport) -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <!-- Aspect: Scenery -->
-                        <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 space-y-1">
-                            <label class="text-[11px] font-semibold text-zinc-400 block flex items-center gap-1">
-                                <i data-lucide="trees" class="w-3.5 h-3.5 text-emerald-400"></i>
-                                <span>บรรยากาศ/วิว (ไม่บังคับ)</span>
-                            </label>
-                            <div class="flex items-center gap-1 star-picker-group" data-target="review-scenery-input" data-selected="{{ user_review.aspect_scenery|default:'' }}">
-                                {% for i in "12345" %}
-                                    <button type="button" data-value="{{ i }}" class="star-btn p-1 rounded-lg hover:bg-zinc-800 transition text-zinc-600">
-                                        <i data-lucide="star" class="w-4 h-4"></i>
-                                    </button>
-                                {% endfor %}
-                                <span class="text-[11px] text-zinc-400 ml-1 star-picker-label font-mono">{% if user_review.aspect_scenery %}{{ user_review.aspect_scenery }}/5{% else %}ไม่ระบุ{% endif %}</span>
-                            </div>
-                        </div>
-
-                        <!-- Aspect: Transport -->
-                        <div class="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 space-y-1">
-                            <label class="text-[11px] font-semibold text-zinc-400 block flex items-center gap-1">
-                                <i data-lucide="car" class="w-3.5 h-3.5 text-cyan-400"></i>
-                                <span>ความสะดวกการเดินทาง (ไม่บังคับ)</span>
-                            </label>
-                            <div class="flex items-center gap-1 star-picker-group" data-target="review-transport-input" data-selected="{{ user_review.aspect_transport|default:'' }}">
-                                {% for i in "12345" %}
-                                    <button type="button" data-value="{{ i }}" class="star-btn p-1 rounded-lg hover:bg-zinc-800 transition text-zinc-600">
-                                        <i data-lucide="star" class="w-4 h-4"></i>
-                                    </button>
-                                {% endfor %}
-                                <span class="text-[11px] text-zinc-400 ml-1 star-picker-label font-mono">{% if user_review.aspect_transport %}{{ user_review.aspect_transport }}/5{% else %}ไม่ระบุ{% endif %}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Written Review Textarea -->
-                    <div class="space-y-1">
-                        <label class="text-xs font-semibold text-zinc-300 block">ข้อความรีวิว</label>
-                        <textarea name="review_text" rows="2" placeholder="เขียนรีวิวบรรยากาศ ประสบการณ์เดินทาง ข้อดีข้อเสีย หรือข้อแนะนำ..." class="w-full p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-white placeholder-zinc-500 focus:ring-1 focus:ring-amber-400/50 outline-none text-xs leading-relaxed transition font-normal resize-none">{{ user_review.review_text|default:'' }}</textarea>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <button type="submit" id="btn-submit-review" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs transition active:scale-95 shadow-lg flex items-center gap-2">
-                            <i data-lucide="check" class="w-4 h-4"></i>
-                            <span>{% if user_review %}อัปเดตรีวิว{% else %}บันทึกรีวิว{% endif %}</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        {% endif %}
-
-        <!-- Reviews List Container -->
-        <div class="space-y-3" id="reviews-list-container">
-            {% if reviews %}
-                {% for r in reviews %}
-                    <div class="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-2" id="review-card-{{ r.pk }}">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <a href="{% url 'user_profile' username=r.user.username %}" class="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-zinc-800">
-                                    {% if r.user.profile.get_avatar_url %}
-                                        <img src="{{ r.user.profile.get_avatar_url }}" alt="Avatar" class="w-full h-full object-cover">
-                                    {% else %}
-                                        <div class="w-full h-full flex items-center justify-center font-bold text-white text-xs">
-                                            {{ r.user.profile.get_initial|default:r.user.username|slice:":1"|upper }}
-                                        </div>
-                                    {% endif %}
-                                </a>
-                                <div>
-                                    <a href="{% url 'user_profile' username=r.user.username %}" class="text-xs font-bold text-white hover:underline block">
-                                        {{ r.user.profile.get_display_name|default:r.user.username }}
-                                    </a>
-                                    <span class="text-[10px] text-zinc-400 font-mono">{{ r.created_at|date:"d/m/Y H:i" }}</span>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center gap-2">
-                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold text-xs">
-                                    <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400 text-amber-400"></i>
-                                    <span>{{ r.score }}</span>
-                                </span>
-                                {% if r.user == user %}
-                                    <button type="button" onclick="deleteReview({{ r.pk }})" class="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400 transition" title="ลบรีวิว">
-                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                    </button>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Aspect Sub-scores Badges -->
-                        {% if r.aspect_scenery or r.aspect_transport %}
-                            <div class="flex flex-wrap gap-2 pt-0.5">
-                                {% if r.aspect_scenery %}
-                                    <span class="px-2 py-0.5 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[10px] font-medium flex items-center gap-1">
-                                        <i data-lucide="trees" class="w-3 h-3"></i>
-                                        <span>บรรยากาศ {{ r.aspect_scenery }}/5★</span>
-                                    </span>
-                                {% endif %}
-                                {% if r.aspect_transport %}
-                                    <span class="px-2 py-0.5 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 text-[10px] font-medium flex items-center gap-1">
-                                        <i data-lucide="car" class="w-3 h-3"></i>
-                                        <span>การเดินทาง {{ r.aspect_transport }}/5★</span>
-                                    </span>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-
-                        {% if r.review_text %}
-                            <p class="text-xs text-zinc-200 leading-relaxed pt-1 font-normal">{{ r.review_text }}</p>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="p-6 rounded-2xl bg-zinc-900/40 border border-dashed border-zinc-800 text-center space-y-2">
-                    <i data-lucide="star" class="w-6 h-6 text-zinc-600 mx-auto"></i>
-                    <p class="text-xs font-medium text-zinc-400">ยังไม่มีรีวิวสำหรับสถานที่นี้ เป็นคนแรกที่ให้รีวิว!</p>
-                </div>
-            {% endif %}
-        </div>
-    </div>
 
 </div>
 
@@ -940,5 +777,131 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('user-report-modal').classList.add('hidden');
         document.getElementById('user-report-modal').classList.remove('flex');
     }
+</script>
+
+{{ post.get_all_image_urls|json_script:"post-images-json" }}
+
+<!-- FULLSCREEN IMAGE LIGHTBOX MODAL -->
+<div id="image-lightbox-modal" class="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl hidden flex-col items-center justify-center p-2 sm:p-6 select-none opacity-0 transition-opacity duration-300" onclick="closePostLightbox(event)">
+    <!-- Top Bar Controls -->
+    <div class="absolute top-4 left-4 right-4 z-30 flex items-center justify-between pointer-events-auto">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-white/10 backdrop-blur-md text-white text-xs font-mono font-bold shadow-2xl">
+            <i data-lucide="image" class="w-3.5 h-3.5 text-zinc-400"></i>
+            <span id="lightbox-counter">1 / 1</span>
+        </div>
+        <button type="button" onclick="closePostLightbox()" class="w-10 h-10 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-white/10 backdrop-blur-md flex items-center justify-center transition active:scale-95 shadow-2xl" title="ปิด (ESC)">
+            <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+    </div>
+
+    <!-- Main Image Zoom Area -->
+    <div class="relative w-full h-full flex items-center justify-center p-2 sm:p-4" onclick="event.stopPropagation()">
+        <img id="lightbox-img" src="" alt="Fullscreen zoom" class="max-w-full max-h-full object-contain rounded-2xl shadow-2xl transition-transform duration-300 scale-95 cursor-zoom-out" onclick="closePostLightbox()" />
+
+        <!-- Navigation Buttons -->
+        <button type="button" id="lightbox-prev-btn" onclick="prevLightboxImage(event)" class="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-zinc-900/85 hover:bg-zinc-800 text-white border border-white/15 backdrop-blur-md flex items-center justify-center transition active:scale-90 shadow-2xl" aria-label="ภาพก่อนหน้า">
+            <i data-lucide="chevron-left" class="w-6 h-6"></i>
+        </button>
+        <button type="button" id="lightbox-next-btn" onclick="nextLightboxImage(event)" class="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-zinc-900/85 hover:bg-zinc-800 text-white border border-white/15 backdrop-blur-md flex items-center justify-center transition active:scale-90 shadow-2xl" aria-label="ภาพถัดไป">
+            <i data-lucide="chevron-right" class="w-6 h-6"></i>
+        </button>
+    </div>
+</div>
+
+<script>
+    let lightboxImages = [];
+    try {
+        const raw = document.getElementById('post-images-json');
+        if (raw) lightboxImages = JSON.parse(raw.textContent || '[]');
+    } catch (e) {
+        console.error('Error parsing post images:', e);
+    }
+    let currentLightboxIdx = 0;
+
+    function openPostLightbox(index) {
+        if (!lightboxImages || lightboxImages.length === 0) return;
+        currentLightboxIdx = index || 0;
+        const modal = document.getElementById('image-lightbox-modal');
+        const img = document.getElementById('lightbox-img');
+
+        updateLightboxImage();
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            img.classList.remove('scale-95');
+            img.classList.add('scale-100');
+        }, 15);
+
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function updateLightboxImage() {
+        const img = document.getElementById('lightbox-img');
+        const counter = document.getElementById('lightbox-counter');
+        const prevBtn = document.getElementById('lightbox-prev-btn');
+        const nextBtn = document.getElementById('lightbox-next-btn');
+
+        if (!img || !lightboxImages[currentLightboxIdx]) return;
+        img.src = lightboxImages[currentLightboxIdx];
+        if (counter) counter.textContent = `${currentLightboxIdx + 1} / ${lightboxImages.length}`;
+
+        if (lightboxImages.length <= 1) {
+            if (prevBtn) prevBtn.style.display = 'none';
+            if (nextBtn) nextBtn.style.display = 'none';
+        } else {
+            if (prevBtn) prevBtn.style.display = 'flex';
+            if (nextBtn) nextBtn.style.display = 'flex';
+        }
+    }
+
+    function closePostLightbox(e) {
+        if (e && e.target && e.target.closest('#lightbox-prev-btn, #lightbox-next-btn')) return;
+        const modal = document.getElementById('image-lightbox-modal');
+        const img = document.getElementById('lightbox-img');
+        if (!modal) return;
+        modal.classList.add('opacity-0');
+        if (img) {
+            img.classList.remove('scale-100');
+            img.classList.add('scale-95');
+        }
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }, 250);
+    }
+
+    function prevLightboxImage(e) {
+        if (e) e.stopPropagation();
+        if (currentLightboxIdx > 0) {
+            currentLightboxIdx--;
+        } else {
+            currentLightboxIdx = lightboxImages.length - 1;
+        }
+        updateLightboxImage();
+    }
+
+    function nextLightboxImage(e) {
+        if (e) e.stopPropagation();
+        if (currentLightboxIdx < lightboxImages.length - 1) {
+            currentLightboxIdx++;
+        } else {
+            currentLightboxIdx = 0;
+        }
+        updateLightboxImage();
+    }
+
+    document.addEventListener('keydown', function(e) {
+        const modal = document.getElementById('image-lightbox-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            if (e.key === 'Escape') closePostLightbox();
+            else if (e.key === 'ArrowLeft') prevLightboxImage();
+            else if (e.key === 'ArrowRight') nextLightboxImage();
+        }
+    });
 </script>
 {% endblock %}

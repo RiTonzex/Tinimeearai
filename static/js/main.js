@@ -14,9 +14,6 @@ function getCsrfToken() {
 
 function initCarousels() {
     document.querySelectorAll('.carousel-container').forEach(container => {
-        if (container.dataset.carouselInit) return;
-        container.dataset.carouselInit = 'true';
-
         const slidesContainer = container.querySelector('.carousel-slides');
         const slides = container.querySelectorAll('.carousel-slide');
         const prevBtn = container.querySelector('.carousel-btn-prev');
@@ -27,13 +24,14 @@ function initCarousels() {
 
         if (total <= 1 || !slidesContainer) return;
 
-        let currentIndex = 0;
+        let currentIndex = parseInt(container.dataset.currentIndex || '0', 10) || 0;
 
         function updateCarousel(index, animate = true) {
             currentIndex = Math.max(0, Math.min(index, total - 1));
+            container.dataset.currentIndex = currentIndex;
 
-            if (slidesContainer) {
-                const containerWidth = container.offsetWidth || container.getBoundingClientRect().width;
+            const containerWidth = container.offsetWidth || container.getBoundingClientRect().width || window.innerWidth;
+            if (slidesContainer && containerWidth > 0) {
                 if (!animate) {
                     slidesContainer.style.transition = 'none';
                 } else {
@@ -66,56 +64,191 @@ function initCarousels() {
             }
         }
 
-        updateCarousel(0, false);
+        container._updateCarousel = updateCarousel;
+        container._slidePrev = () => updateCarousel(currentIndex - 1);
+        container._slideNext = () => updateCarousel(currentIndex + 1);
 
-        // Recalculate on window resize
-        window.addEventListener('resize', () => {
-            updateCarousel(currentIndex, false);
-        }, { passive: true });
+        if (!container.dataset.carouselInit) {
+            container.dataset.carouselInit = 'true';
 
-        if (prevBtn) {
-            prevBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                updateCarousel(currentIndex - 1);
-            });
-        }
-
-        if (nextBtn) {
-            nextBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                updateCarousel(currentIndex + 1);
-            });
-        }
-
-        // Touch swipe gestures
-        let startX = 0;
-        let startY = 0;
-
-        container.addEventListener('touchstart', (e) => {
-            if (e.touches.length !== 1) return;
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-        }, { passive: true });
-
-        container.addEventListener('touchend', (e) => {
-            if (e.changedTouches.length !== 1) return;
-            const diffX = e.changedTouches[0].clientX - startX;
-            const diffY = e.changedTouches[0].clientY - startY;
-
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-                if (diffX < 0 && currentIndex < total - 1) {
-                    updateCarousel(currentIndex + 1);
-                } else if (diffX > 0 && currentIndex > 0) {
+            if (prevBtn) {
+                prevBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     updateCarousel(currentIndex - 1);
-                }
+                });
             }
-        }, { passive: true });
+
+            if (nextBtn) {
+                nextBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    updateCarousel(currentIndex + 1);
+                });
+            }
+
+            // Touch swipe gesture support
+            let startX = 0;
+            let startY = 0;
+            let isTouching = false;
+
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                isTouching = true;
+            }, { passive: true });
+
+            container.addEventListener('touchend', (e) => {
+                if (!isTouching || e.changedTouches.length !== 1) return;
+                isTouching = false;
+                const diffX = e.changedTouches[0].clientX - startX;
+                const diffY = e.changedTouches[0].clientY - startY;
+
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 25) {
+                    if (diffX < 0 && currentIndex < total - 1) {
+                        updateCarousel(currentIndex + 1);
+                    } else if (diffX > 0 && currentIndex > 0) {
+                        updateCarousel(currentIndex - 1);
+                    }
+                }
+            }, { passive: true });
+        }
+
+        updateCarousel(currentIndex, false);
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Global Carousel Button Click Delegation
+document.addEventListener('click', (e) => {
+    const prevBtn = e.target.closest('.carousel-btn-prev');
+    if (prevBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const container = prevBtn.closest('.carousel-container');
+        if (container && typeof container._slidePrev === 'function') {
+            container._slidePrev();
+        }
+        return;
+    }
+
+    const nextBtn = e.target.closest('.carousel-btn-next');
+    if (nextBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const container = nextBtn.closest('.carousel-container');
+        if (container && typeof container._slideNext === 'function') {
+            container._slideNext();
+        }
+        return;
+    }
+});
+
+// Universal Optimistic Post Like Handler
+document.addEventListener('click', async (e) => {
+    const likeBtn = e.target.closest('.btn-like-post');
+    if (!likeBtn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const url = likeBtn.dataset.url;
+    if (!url) return;
+
+    const heartIcon = likeBtn.querySelector('svg') || likeBtn.querySelector('i');
+    const countSpan = likeBtn.querySelector('.post-likes-count');
+
+    function setHeartState(isLiked) {
+        if (!heartIcon) return;
+        if (isLiked) {
+            heartIcon.classList.add('text-rose-500', 'fill-rose-500');
+            heartIcon.classList.remove('text-zinc-400', 'text-zinc-300');
+            heartIcon.setAttribute('fill', '#f43f5e');
+            heartIcon.setAttribute('stroke', '#f43f5e');
+            heartIcon.style.fill = '#f43f5e';
+            heartIcon.style.stroke = '#f43f5e';
+        } else {
+            heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
+            heartIcon.classList.add('text-zinc-400');
+            heartIcon.setAttribute('fill', 'none');
+            heartIcon.setAttribute('stroke', 'currentColor');
+            heartIcon.style.fill = 'none';
+            heartIcon.style.stroke = 'currentColor';
+        }
+    }
+
+    const isCurrentlyLiked = heartIcon ? (
+        heartIcon.classList.contains('fill-rose-500') ||
+        heartIcon.classList.contains('text-rose-500') ||
+        heartIcon.getAttribute('fill') === '#f43f5e' ||
+        heartIcon.style.fill === '#f43f5e'
+    ) : false;
+
+    let currentCount = countSpan ? (parseInt(countSpan.textContent.replace(/[^0-9]/g, '')) || 0) : 0;
+
+    // Optimistic UI toggle
+    const nextLikedState = !isCurrentlyLiked;
+    setHeartState(nextLikedState);
+    if (nextLikedState && heartIcon) {
+        heartIcon.style.transform = 'scale(1.35)';
+        setTimeout(() => { heartIcon.style.transform = 'scale(1)'; }, 180);
+    }
+    if (countSpan) {
+        countSpan.textContent = nextLikedState ? currentCount + 1 : Math.max(0, currentCount - 1);
+    }
+
+    const csrfToken = getCsrfToken();
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+
+        if (res.status === 401) {
+            const data = await res.json().catch(() => ({}));
+            if (typeof showSystemToast === 'function') {
+                showSystemToast(data.message || 'กรุณาเข้าสู่ระบบก่อนกดถูกใจ', 'error');
+            }
+            setTimeout(() => {
+                window.location.href = data.redirect || '/login/';
+            }, 400);
+            return;
+        }
+
+        if (res.ok) {
+            const data = await res.json();
+            if (countSpan && typeof data.total_likes !== 'undefined') {
+                countSpan.textContent = data.total_likes;
+            }
+            if (typeof data.liked !== 'undefined') {
+                setHeartState(data.liked);
+            }
+        } else {
+            console.error('Like request failed with status:', res.status);
+            // Rollback on server error
+            setHeartState(isCurrentlyLiked);
+            if (countSpan) countSpan.textContent = currentCount;
+        }
+    } catch (err) {
+        console.error('Like sync error:', err);
+        // Rollback on network error
+        setHeartState(isCurrentlyLiked);
+        if (countSpan) countSpan.textContent = currentCount;
+    }
+});
+
+function onDomReady(fn) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn);
+    } else {
+        fn();
+    }
+}
+
+onDomReady(() => {
     // 1. Initialize Carousels
     initCarousels();
 
@@ -138,76 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
         window.lucide.createIcons();
     }
-
-    // 4. Universal Optimistic Post Like Handler
-    document.addEventListener('click', async (e) => {
-        const likeBtn = e.target.closest('.btn-like-post');
-        if (!likeBtn) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        const url = likeBtn.dataset.url;
-        if (!url) return;
-
-        const heartIcon = likeBtn.querySelector('svg') || likeBtn.querySelector('i');
-        const countSpan = likeBtn.querySelector('.post-likes-count');
-
-        const isCurrentlyLiked = heartIcon ? (heartIcon.classList.contains('fill-rose-500') || heartIcon.classList.contains('text-rose-500')) : false;
-        let currentCount = countSpan ? (parseInt(countSpan.textContent.replace(/[^0-9]/g, '')) || 0) : 0;
-
-        if (isCurrentlyLiked) {
-            if (heartIcon) {
-                heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
-                heartIcon.classList.add('text-zinc-400');
-            }
-            if (countSpan) {
-                currentCount = Math.max(0, currentCount - 1);
-                countSpan.textContent = currentCount;
-            }
-        } else {
-            if (heartIcon) {
-                heartIcon.classList.add('text-rose-500', 'fill-rose-500');
-                heartIcon.classList.remove('text-zinc-400');
-                heartIcon.style.transform = 'scale(1.35)';
-                setTimeout(() => { heartIcon.style.transform = 'scale(1)'; }, 180);
-            }
-            if (countSpan) {
-                currentCount = currentCount + 1;
-                countSpan.textContent = currentCount;
-            }
-        }
-
-        const csrfToken = getCsrfToken();
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (countSpan && typeof data.total_likes !== 'undefined') {
-                    countSpan.textContent = data.total_likes;
-                }
-                if (heartIcon && typeof data.liked !== 'undefined') {
-                    if (data.liked) {
-                        heartIcon.classList.add('text-rose-500', 'fill-rose-500');
-                        heartIcon.classList.remove('text-zinc-400');
-                    } else {
-                        heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
-                        heartIcon.classList.add('text-zinc-400');
-                    }
-                }
-            } else {
-                console.error('Like request failed with status:', res.status);
-            }
-        } catch (err) {
-            console.error('Like sync error:', err);
-        }
-    });
 
     // 5. Smooth Page Navigation Loading Indicator
     let loadingBar = document.getElementById('top-loading-bar');
@@ -803,8 +866,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    initStarPickers();
-    initPlaceReviewForm();
     initUserTagPickers();
 });
 

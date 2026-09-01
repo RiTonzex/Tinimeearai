@@ -188,7 +188,69 @@
                 </div>
             </div>
 
-            <!-- Filter 4 & 5: ช่วงเวลาและการเรียงลำดับ -->
+            <!-- Filter 4: รัศมีระยะทางรอบตัว -->
+            <div class="space-y-2.5 pt-2 border-t border-white/10">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                        <i data-lucide="navigation" class="w-3.5 h-3.5 text-rose-400"></i>
+                        <span>รัศมีระยะทางรอบตัวคุณ (Distance Radius)</span>
+                    </label>
+                    <button type="button" onclick="detectGPSForSearch(true)" class="text-[10px] text-emerald-400 hover:underline flex items-center gap-1 font-semibold">
+                        <i data-lucide="crosshair" class="w-3 h-3"></i> อัปเดตพิกัด GPS
+                    </button>
+                </div>
+                
+                <input type="hidden" name="lat" id="search-gps-lat" value="{{ user_lat|default:'' }}">
+                <input type="hidden" name="lng" id="search-gps-lng" value="{{ user_lng|default:'' }}">
+
+                <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="distance" value="all" class="hidden peer" {% if distance_filter == 'all' or not distance_filter %}checked{% endif %}>
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                            ไม่จำกัด
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="distance" value="5" class="hidden peer" {% if distance_filter == '5' %}checked{% endif %} onchange="detectGPSForSearch()">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                            📍 &le; 5 กม.
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="distance" value="10" class="hidden peer" {% if distance_filter == '10' %}checked{% endif %} onchange="detectGPSForSearch()">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                            📍 &le; 10 กม.
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="distance" value="25" class="hidden peer" {% if distance_filter == '25' %}checked{% endif %} onchange="detectGPSForSearch()">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                            📍 &le; 25 กม.
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="distance" value="50" class="hidden peer" {% if distance_filter == '50' %}checked{% endif %} onchange="detectGPSForSearch()">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                            📍 &le; 50 กม.
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="distance" value="100" class="hidden peer" {% if distance_filter == '100' %}checked{% endif %} onchange="detectGPSForSearch()">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                            📍 &le; 100 กม.
+                        </div>
+                    </label>
+                </div>
+                <div id="search-gps-status" class="text-[10px] text-zinc-500 italic">
+                    {% if user_lat and user_lng %}
+                        <span class="text-emerald-400">✓ ใช้งานพิกัดปัจจุบันสำหรับการคำนวณระยะทาง</span>
+                    {% else %}
+                        <span>* จะใช้ตำแหน่งปัจจุบันของอุปกรณ์ในการคำนวณระยะทาง</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Filter 5: ช่วงเวลาและการเรียงลำดับ -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-white/10">
                 
                 <!-- Date Range -->
@@ -202,7 +264,6 @@
                         <option value="custom" {% if date_range == 'custom' %}selected{% endif %}>กำหนดช่วงวันที่เอง...</option>
                     </select>
 
-                    <!-- Custom Start & End Date Inputs -->
                     <div id="custom-date-inputs" class="{% if date_range != 'custom' %}hidden{% endif %} grid grid-cols-2 gap-2 pt-1">
                         <div>
                             <span class="text-[10px] text-zinc-400 block mb-0.5">ตั้งแต่วันที่:</span>
@@ -223,6 +284,7 @@
                         <option value="popular" {% if sort_by == 'popular' %}selected{% endif %}>ได้รับความนิยมสูงสุด (Most Liked)</option>
                         <option value="views" {% if sort_by == 'views' %}selected{% endif %}>จำนวนเข้าชมสูงสุด (Most Viewed)</option>
                         <option value="comments" {% if sort_by == 'comments' %}selected{% endif %}>คอมเมนต์มากที่สุด (Most Commented)</option>
+                        <option value="distance" {% if sort_by == 'distance' %}selected{% endif %}>ระยะทางใกล้ที่สุด (Nearest)</option>
                     </select>
                 </div>
 
@@ -244,7 +306,7 @@
 
     <!-- SEARCH TABS: POSTS vs ACCOUNTS -->
     <div class="grid grid-cols-2 p-1 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-bold">
-        <a href="?q={{ query }}&type=posts{% for r in selected_regions %}&regions={{ r }}{% endfor %}{% for p in selected_provinces %}&provinces={{ p }}{% endfor %}{% for c in selected_categories %}&categories={{ c }}{% endfor %}&date_range={{ date_range }}&sort_by={{ sort_by }}" 
+        <a href="?q={{ query }}&type=posts{% for r in selected_regions %}&regions={{ r }}{% endfor %}{% for p in selected_provinces %}&provinces={{ p }}{% endfor %}{% for c in selected_categories %}&categories={{ c }}{% endfor %}&date_range={{ date_range }}&distance={{ distance_filter }}&sort_by={{ sort_by }}" 
            class="py-2.5 rounded-xl text-center flex items-center justify-center gap-2 transition {% if search_type == 'posts' %}bg-white text-black font-bold shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
             <i data-lucide="grid" class="w-4 h-4"></i>
             <span>โพสต์สถานที่ ({{ post_results|length }})</span>
@@ -265,33 +327,24 @@
                         <a href="{% url 'post_detail' pk=post.pk %}" class="block relative aspect-[16/10] bg-black overflow-hidden">
                             <img src="{{ post.get_image_url }}" alt="{{ post.location_name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                             
-                            <!-- Star Rating Overlay Badge Top Left on Photo -->
-                            <div class="absolute top-3 left-3 z-30 flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/80 backdrop-blur-md border border-amber-500/40 text-amber-400 font-extrabold text-xs shadow-2xl pointer-events-none">
-                                <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400 text-amber-400"></i>
-                                <span class="text-white font-mono">{{ post.avg_rating|floatformat:1 }}</span>
-                                {% if post.review_count > 0 %}
-                                    <span class="text-[10px] text-zinc-400 font-normal font-mono">({{ post.review_count }})</span>
-                                {% endif %}
+                            <!-- Minimalist Sleek Location Overlay on Bottom Left -->
+                            {% if post.location_name %}
+                            <div class="absolute bottom-3 left-3 z-20 pointer-events-none max-w-[70%]">
+                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-white text-[11px] font-medium shadow-lg truncate">
+                                    <i data-lucide="map-pin" class="w-3 h-3 text-zinc-300 shrink-0"></i>
+                                    <span class="truncate">{{ post.location_name }}</span>
+                                </div>
                             </div>
+                            {% endif %}
 
-                            <!-- Location, Distance & Weather Overlay Badges -->
-                            <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-                                {% if post.location_name %}
-                                    <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
-                                        <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-400"></i>
-                                        <span>{{ post.location_name }}</span>
-                                        {% if post.distance_km is not None %}
-                                            <span class="text-[11px] text-emerald-400 font-extrabold ml-1 border-l border-white/20 pl-1.5">📍 {{ post.distance_km }} กม.</span>
-                                        {% endif %}
-                                    </div>
-                                {% endif %}
-
-                                {% if post.weather %}
-                                    <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-amber-500/30 text-amber-300 text-xs font-extrabold flex items-center gap-1.5 shadow-xl">
-                                        <span>{{ post.weather.display }}</span>
-                                    </div>
-                                {% endif %}
+                            <!-- Distance Badge on Top Left -->
+                            {% if post.distance_km is not None %}
+                            <div class="absolute top-3 left-3 z-20 pointer-events-none">
+                                <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/40 text-emerald-300 text-[10px] font-extrabold font-mono shadow-lg">
+                                    📍 {{ post.distance_km }} กม.
+                                </span>
                             </div>
+                            {% endif %}
                         </a>
 
                         <div class="p-5 space-y-3">
@@ -366,13 +419,13 @@
         <div class="space-y-3">
             {% if account_results %}
                 {% for acc in account_results %}
-                    <div class="p-4 rounded-[2rem] glass-card border border-white/[0.08] shadow-lg flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-3.5 min-w-0 flex-1">
-                            <a href="{% url 'user_profile' username=acc.username %}" class="story-ring rounded-2xl shadow-sm overflow-hidden shrink-0">
+                    <div class="p-4 rounded-3xl glass-card flex items-center justify-between gap-3 border border-white/[0.08] shadow-lg hover:border-zinc-700 transition">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <a href="{% url 'user_profile' username=acc.username %}" class="story-ring rounded-2xl shrink-0 overflow-hidden">
                                 {% if acc.profile.get_avatar_url %}
-                                    <img src="{{ acc.profile.get_avatar_url }}" alt="Avatar" class="w-12 h-12 rounded-[16px] object-cover bg-zinc-900">
+                                    <img src="{{ acc.profile.get_avatar_url }}" alt="{{ acc.username }}" class="w-12 h-12 rounded-[18px] object-cover bg-zinc-900">
                                 {% else %}
-                                    <div class="w-12 h-12 rounded-[16px] bg-zinc-900 flex items-center justify-center font-black text-white text-base">
+                                    <div class="w-12 h-12 rounded-[18px] bg-zinc-900 flex items-center justify-center font-bold text-sm text-white">
                                         {{ acc.profile.get_initial|default:acc.username|slice:":1"|upper }}
                                     </div>
                                 {% endif %}
@@ -421,6 +474,31 @@
             } else {
                 customInputs.classList.add('hidden');
             }
+        }
+    }
+
+    function detectGPSForSearch(force = false) {
+        const latInput = document.getElementById('search-gps-lat');
+        const lngInput = document.getElementById('search-gps-lng');
+        const statusEl = document.getElementById('search-gps-status');
+
+        if (!force && latInput && lngInput && latInput.value && lngInput.value) {
+            return;
+        }
+
+        if (navigator.geolocation) {
+            if (statusEl) statusEl.innerHTML = '<span class="text-amber-400">กำลังขอพิกัด GPS...</span>';
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    if (latInput) latInput.value = pos.coords.latitude;
+                    if (lngInput) lngInput.value = pos.coords.longitude;
+                    if (statusEl) statusEl.innerHTML = '<span class="text-emerald-400">✓ ได้รับพิกัดปัจจุบันแล้ว</span>';
+                },
+                (err) => {
+                    if (statusEl) statusEl.innerHTML = '<span class="text-zinc-500">* ไม่สามารถระบุพิกัด GPS ได้ (กรุณาอนุญาตการเข้าถึงตำแหน่ง)</span>';
+                },
+                { enableHighAccuracy: true, timeout: 6000 }
+            );
         }
     }
 </script>

@@ -20,7 +20,13 @@
             <div class="space-y-1 flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                     <h1 class="text-xl font-black text-white tracking-tight truncate">{{ user.profile.get_display_name|default:user.username }}</h1>
-                    <span class="px-2.5 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 text-[10px] font-bold">Member</span>
+                    {% if user.is_staff or user.is_superuser %}
+                        <span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-extrabold flex items-center gap-1 shadow-sm">
+                            <i data-lucide="shield-check" class="w-3 h-3 text-rose-400"></i> Admin
+                        </span>
+                    {% else %}
+                        <span class="px-2.5 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 text-[10px] font-bold">Member</span>
+                    {% endif %}
                 </div>
                 <p class="text-xs text-zinc-400 flex items-center gap-1.5">
                     <span class="font-mono text-zinc-400">@{{ user.username }}</span>

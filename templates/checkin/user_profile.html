@@ -54,7 +54,13 @@
             <div class="space-y-1.5 flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                     <h1 class="text-xl font-black text-white tracking-tight truncate">{{ profile.get_display_name }}</h1>
-                    <span class="px-2.5 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 text-[10px] font-bold">นักเดินทาง</span>
+                    {% if target_user.is_staff or target_user.is_superuser %}
+                        <span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-extrabold flex items-center gap-1 shadow-sm">
+                            <i data-lucide="shield-check" class="w-3 h-3 text-rose-400"></i> Admin
+                        </span>
+                    {% else %}
+                        <span class="px-2.5 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 text-[10px] font-bold">นักเดินทาง</span>
+                    {% endif %}
                 </div>
                 <p class="text-xs text-zinc-400 font-mono font-medium">@{{ target_user.username }}</p>
                 
@@ -110,30 +116,32 @@
     </div>
 
     <!-- 1. Travel Footprint (Thailand 77 Province Conquest) Card -->
-    <div class="p-5 rounded-[2.25rem] glass-card border border-white/[0.08] space-y-4 shadow-2xl relative overflow-hidden">
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
+    <div class="p-4 sm:p-5 rounded-[2.25rem] glass-card border border-white/[0.08] space-y-3.5 shadow-2xl relative overflow-hidden">
+        <div class="flex items-center justify-between gap-2.5">
+            <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
                 <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-lg">
                     <i data-lucide="map-pin" class="w-5 h-5"></i>
                 </div>
-                <div>
-                    <h2 class="text-sm md:text-base font-black text-white flex items-center gap-2">
-                        <span>แผนที่พิชิตเมืองไทย</span>
-                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold font-mono">77 จังหวัด</span>
-                    </h2>
-                    <p class="text-xs text-zinc-400 mt-0.5">พิชิตแล้ว <span class="font-bold text-white font-mono">{{ visited_count }}</span>/{{ total_provinces }} จังหวัด ({{ footprint_percentage }}%)</p>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <h2 class="text-xs sm:text-sm font-black text-white tracking-tight">แผนที่พิชิตเมืองไทย</h2>
+                        <span class="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold font-mono shrink-0">77 จังหวัด</span>
+                    </div>
+                    <p class="text-[11px] sm:text-xs text-zinc-400 mt-0.5">
+                        พิชิตแล้ว <span class="font-bold text-white font-mono">{{ visited_count }}</span>/{{ total_provinces }} จังหวัด <span class="text-emerald-400 font-mono font-bold">({{ footprint_percentage }}%)</span>
+                    </p>
                 </div>
             </div>
             
-            <button type="button" id="btn-toggle-footprint-map" class="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-white transition active:scale-95 flex items-center gap-1.5">
+            <button type="button" id="btn-toggle-footprint-map" class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-[11px] sm:text-xs font-bold text-white transition active:scale-95 flex items-center gap-1.5 shrink-0 shadow-sm whitespace-nowrap">
                 <i data-lucide="map" class="w-3.5 h-3.5 text-amber-400"></i>
                 <span id="footprint-map-btn-text">เปิดดูแผนที่</span>
             </button>
         </div>
 
         <!-- Progress Bar -->
-        <div class="w-full bg-zinc-900 rounded-full h-2.5 overflow-hidden border border-zinc-800 p-0.5">
-            <div class="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-700 shadow-lg shadow-emerald-500/20" style="width: {{ footprint_percentage }}%;"></div>
+        <div class="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-800/80 p-0.5">
+            <div class="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-700 shadow-lg shadow-emerald-500/20" style="width: {{ footprint_percentage }}%;"></div>
         </div>
 
         <!-- Footprint Map Container -->

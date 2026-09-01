@@ -535,12 +535,16 @@ def post_delete(request, pk):
 
     return render(request, 'checkin/post_confirm_delete.html', {'post': post})
 
-@login_required(login_url='login')
 @require_POST
 def toggle_like(request, pk):
     """
     กดถูกใจ / ยกเลิกถูกใจโพสต์ (จำกัดเฉพาะ POST request)
     """
+    if not request.user.is_authenticated:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('accept', ''):
+            return JsonResponse({'status': 'unauthenticated', 'message': 'กรุณาเข้าสู่ระบบก่อนกดถูกใจ', 'redirect': '/login/'}, status=401)
+        return redirect('login')
+
     post = get_object_or_404(Post, pk=pk)
     if post.likes.filter(id=request.user.id).exists():
         post.likes.remove(request.user)
@@ -559,7 +563,7 @@ def toggle_like(request, pk):
             )
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('accept', ''):
-        return JsonResponse({'liked': liked, 'total_likes': post.total_likes})
+        return JsonResponse({'status': 'success', 'liked': liked, 'total_likes': post.total_likes})
 
     return redirect('post_detail', pk=pk)
 
@@ -1069,6 +1073,7 @@ def search_view(request):
     start_date_str = request.GET.get('start_date', '').strip()
     end_date_str = request.GET.get('end_date', '').strip()
     sort_by = request.GET.get('sort_by') or request.GET.get('sort') or 'newest'
+    distance_filter = request.GET.get('distance', 'all')
 
     posts_qs = Post.objects.all()
     if hasattr(Post, 'is_hidden'):
@@ -1174,10 +1179,13 @@ def search_view(request):
         try:
             user_lat = float(user_lat)
             user_lng = float(user_lng)
+            request.session['user_lat'] = user_lat
+            request.session['user_lng'] = user_lng
         except (ValueError, TypeError):
-            user_lat, user_lng = None, None
+            user_lat = request.session.get('user_lat')
+            user_lng = request.session.get('user_lng')
 
-    nearby = request.GET.get('nearby') == '1'
+    nearby = request.GET.get('nearby') == '1' or (distance_filter not in ('all', '', None))
 
     for p in post_results:
         if user_lat is not None and user_lng is not None and getattr(p, 'has_coordinates', False):
@@ -1190,12 +1198,24 @@ def search_view(request):
         else:
             p.weather = None
 
-    if nearby and user_lat is not None and user_lng is not None:
-        post_results = [p for p in post_results if p.distance_km is not None and p.distance_km <= 10.0]
-        post_results.sort(key=lambda x: x.distance_km if x.distance_km is not None else 999999)
+    # Filter by Distance / Radius
+    max_dist_km = None
+    if distance_filter and distance_filter != 'all':
+        try:
+            max_dist_km = float(distance_filter)
+        except (ValueError, TypeError):
+            max_dist_km = None
+    elif nearby:
+        max_dist_km = 10.0
+
+    if max_dist_km is not None and user_lat is not None and user_lng is not None:
+        post_results = [p for p in post_results if p.distance_km is not None and p.distance_km <= max_dist_km]
+        if sort_by == 'distance' or (sort_by == 'newest' and nearby):
+            post_results.sort(key=lambda x: x.distance_km if x.distance_km is not None else 999999)
 
     # Active Filters Count
-    active_filters_count = len(selected_regions) + len(selected_provinces) + len(selected_categories) + (1 if date_range != 'all' else 0) + (1 if sort_by != 'newest' else 0) + (1 if nearby else 0)
+    has_dist_filter = 1 if (distance_filter and distance_filter != 'all') else 0
+    active_filters_count = len(selected_regions) + len(selected_provinces) + len(selected_categories) + (1 if date_range != 'all' else 0) + (1 if sort_by != 'newest' else 0) + has_dist_filter
 
     context = {
         'query': query,
@@ -1211,6 +1231,7 @@ def search_view(request):
         'selected_provinces': selected_provinces,
         'selected_categories': selected_categories,
         'date_range': date_range,
+        'distance_filter': distance_filter,
         'start_date': start_date_str,
         'end_date': end_date_str,
         'sort_by': sort_by,
@@ -1348,6 +1369,73 @@ def google_callback(request):
         return redirect('login')
 
 
+def seed_mock_reports_if_empty():
+    """
+    สร้างข้อมูลการรายงานจำลอง (Mock Reports) เพื่อให้ Admin Dashboard มีข้อมูลให้ทดสอบระบบ
+    """
+    if Report.objects.count() > 0:
+        return
+
+    reporter_user, _ = User.objects.get_or_create(username='traveler_demo', defaults={'first_name': 'นักเดินทางจำลอง'})
+    target_user, _ = User.objects.get_or_create(username='suspicious_bot', defaults={'first_name': 'บอทต้องสงสัย'})
+    
+    sample_posts = list(Post.objects.all()[:3])
+    if not sample_posts:
+        sample_post = Post.objects.create(
+            user=target_user,
+            location_name='เว็บพนันออนไลน์ครบวงจร ชวนเที่ยวรับโบนัส',
+            caption='แจกเครดิตฟรี แอดไลน์ @fakebonus เลยตอนนี้! คลิกดูสถานที่จัดโปรโมชั่นลับ',
+            tags='โปรโมชั่น, เครดิตฟรี, คาเฟ่'
+        )
+        sample_posts = [sample_post]
+
+    sample_comment = None
+    if sample_posts:
+        sample_comment, _ = Comment.objects.get_or_create(
+            user=target_user,
+            post=sample_posts[0],
+            defaults={'content': 'รับปั่นยอด วิวเที่ยวแลกเงิน สนใจทักส่วนตัวด่วน!'}
+        )
+
+    # 1. รายงานสแปม (Pending)
+    Report.objects.create(
+        reporter=reporter_user,
+        post=sample_posts[0],
+        reason='spam',
+        status='pending',
+        details='โพสต์ข้อความสแปมและชักชวนเข้าเว็บพนัน/โฆษณาไม่เกี่ยวกับสถานที่ท่องเที่ยว'
+    )
+
+    # 2. รายงานเนื้อหาไม่เหมาะสม (Pending)
+    if len(sample_posts) > 1:
+        Report.objects.create(
+            reporter=reporter_user,
+            post=sample_posts[1],
+            reason='inappropriate',
+            status='pending',
+            details='ภาพประกอบหรือข้อความในโพสต์มีเนื้อหาไม่เหมาะสมต่อเยาวชน'
+        )
+
+    # 3. รายงานคอมเมนต์คุกคาม/หยาบคาย (Pending)
+    if sample_comment:
+        Report.objects.create(
+            reporter=reporter_user,
+            comment=sample_comment,
+            reason='harassment',
+            status='pending',
+            details='คอมเมนต์ใช้ถ้อยคำก่อกวนและสแปมข้อความในโพสต์ผู้อื่น'
+        )
+
+    # 4. รายงานข้อมูลเท็จ (Resolved)
+    Report.objects.create(
+        reporter=reporter_user,
+        post=sample_posts[0],
+        reason='fake_news',
+        status='resolved',
+        details='พิกัดสถานที่คลาดเคลื่อน เจ้าหน้าที่ได้ดำเนินการตรวจสอบและแก้ไขแล้ว'
+    )
+
+
 @login_required(login_url='login')
 def admin_dashboard(request):
     """
@@ -1358,6 +1446,9 @@ def admin_dashboard(request):
     if not request.user.is_staff and not request.user.is_superuser:
         messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบ')
         return redirect('post_list')
+
+    # Ensure mock reports exist for testing moderation
+    seed_mock_reports_if_empty()
 
     # Stat Cards
     total_posts = Post.objects.count()

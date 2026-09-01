@@ -214,13 +214,6 @@
             <!-- Right Actions (Profile, Notifications, Logout) -->
             <div class="flex items-center gap-2.5">
                 {% if user.is_authenticated %}
-                    {% if user.is_staff or user.is_superuser %}
-                        <!-- Admin Dashboard Shortcut Badge -->
-                        <a href="{% url 'admin_dashboard' %}" class="px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 hover:text-white transition text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-sm" title="แอดมิน Dashboard">
-                            <i data-lucide="shield-check" class="w-4 h-4 text-indigo-400"></i>
-                            <span class="hidden sm:inline">แอดมิน</span>
-                        </a>
-                    {% endif %}
 
                     <!-- Notification Bell -->
                     <a href="{% url 'notifications' %}" class="relative w-9 h-9 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-white hover:border-zinc-600 transition active:scale-90" title="การแจ้งเตือน">
@@ -347,10 +340,10 @@
     <!-- Mobile Bottom App Dock (Clean Minimalist Luxury Dock) -->
     {% if user.is_authenticated %}
     <nav class="fixed bottom-3 left-4 right-4 z-40 sm:hidden glass-header rounded-3xl border border-white/10 shadow-2xl safe-bottom">
-        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-6{% else %}grid-cols-5{% endif %} items-center h-16 px-1">
+        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-7{% else %}grid-cols-6{% endif %} items-center h-16 px-1">
             <!-- 1. สำรวจ -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="สำรวจ">
+                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="สำรวจ">
                     <i data-lucide="compass" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">สำรวจ</span>
                 </a>
@@ -358,7 +351,7 @@
 
             <!-- 2. ค้นหา -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="ค้นหา">
+                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="ค้นหา">
                     <i data-lucide="search" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">ค้นหา</span>
                 </a>
@@ -366,15 +359,25 @@
 
             <!-- 3. คอลเลกชัน -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'saved_collections' %}" class="flex flex-col items-center justify-center {% if '/planner/collections' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="คอลเลกชัน">
+                <a href="{% url 'saved_collections' %}" class="flex flex-col items-center justify-center {% if '/planner/collections' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="คอลเลกชัน">
                     <i data-lucide="bookmark" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">คอลเลกชัน</span>
                 </a>
             </div>
 
+            <!-- CENTER STANDOUT ACTION BUTTON: เช็คอิน (+) -->
+            <div class="flex items-center justify-center relative">
+                <a href="{% url 'create_post' %}" class="flex flex-col items-center justify-center -translate-y-4 group transition active:scale-90" title="สร้างโพสต์เช็คอินใหม่">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-400 via-amber-300 to-amber-500 text-black flex items-center justify-center shadow-lg shadow-amber-500/30 border-[3.5px] border-[#09090b] transition-transform duration-200 group-hover:scale-110">
+                        <i data-lucide="plus" class="w-6 h-6 stroke-[3] text-black"></i>
+                    </div>
+                    <span class="text-[9px] mt-0.5 font-black text-amber-400">เช็คอิน</span>
+                </a>
+            </div>
+
             <!-- 4. โปรไฟล์สาธารณะ -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="โปรไฟล์">
+                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="โปรไฟล์">
                     <div class="w-5 h-5 rounded-full overflow-hidden border {% if '/profile/' in request.path and user.username in request.path %}border-white ring-1 ring-white/40{% else %}border-zinc-600{% endif %} flex items-center justify-center bg-zinc-900 shadow-sm">
                         {% if user.profile.get_avatar_url %}
                             <img src="{{ user.profile.get_avatar_url }}" alt="Profile" class="w-full h-full object-cover">
@@ -386,9 +389,9 @@
                 </a>
             </div>
 
-            <!-- 5. ตั้งค่า -->
+            <!-- 5. ตั้งค่า (แสดงผลให้ผู้ใช้ทุกคน) -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="ตั้งค่า">
+                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="ตั้งค่า">
                     <i data-lucide="settings" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">ตั้งค่า</span>
                 </a>
@@ -397,7 +400,7 @@
             {% if user.is_staff or user.is_superuser %}
             <!-- 6. แอดมิน (สำหรับ Staff) -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'admin_dashboard' %}" class="flex flex-col items-center justify-center {% if '/admin-dashboard' in request.path %}text-indigo-400 font-bold{% else %}text-indigo-300/70 hover:text-indigo-300{% endif %} active:scale-90 transition min-w-[40px] py-1" title="แอดมิน">
+                <a href="{% url 'admin_dashboard' %}" class="flex flex-col items-center justify-center {% if '/admin-dashboard' in request.path %}text-rose-400 font-bold{% else %}text-rose-400/70 hover:text-rose-300{% endif %} active:scale-90 transition min-w-[34px] py-1" title="แอดมิน">
                     <i data-lucide="shield-alert" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">แอดมิน</span>
                 </a>
@@ -467,7 +470,7 @@
     </script>
     <!-- Custom Main JS with Cache Busting -->
     <script src="{% static 'js/thailand_map.js' %}?v=20260901_footprint"></script>
-    <script src="{% static 'js/main.js' %}?v=20260831_dark_ok"></script>
+    <script src="{% static 'js/main.js' %}?v=20260902_instant_interactive"></script>
     {% block extra_js %}{% endblock %}
 
 </body>
