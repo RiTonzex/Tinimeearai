@@ -457,4 +457,160 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    initStarPickers();
+    initPlaceReviewForm();
 });
+
+/**
+ * Interactive Star Rating Picker Component Handler
+ */
+function initStarPickers() {
+    document.querySelectorAll('.star-picker-group').forEach(group => {
+        const targetId = group.dataset.target;
+        const targetInput = document.getElementById(targetId);
+        const labelSpan = group.querySelector('.star-picker-label');
+        const starBtns = group.querySelectorAll('.star-btn');
+        let selectedValue = parseInt(group.dataset.selected) || 0;
+
+        function updateStarsDisplay(val) {
+            starBtns.forEach(btn => {
+                const btnVal = parseInt(btn.dataset.value);
+                const icon = btn.querySelector('i') || btn.querySelector('svg');
+                if (btnVal <= val) {
+                    btn.classList.remove('text-zinc-600');
+                    btn.classList.add('text-amber-400');
+                    if (icon) {
+                        icon.setAttribute('fill', '#fbbf24');
+                        icon.setAttribute('stroke', '#fbbf24');
+                        icon.style.fill = '#fbbf24';
+                        icon.style.stroke = '#fbbf24';
+                    }
+                } else {
+                    btn.classList.remove('text-amber-400');
+                    btn.classList.add('text-zinc-600');
+                    if (icon) {
+                        icon.setAttribute('fill', 'none');
+                        icon.setAttribute('stroke', 'currentColor');
+                        icon.style.fill = 'none';
+                        icon.style.stroke = 'currentColor';
+                    }
+                }
+            });
+        }
+
+        // Initialize state
+        updateStarsDisplay(selectedValue);
+
+        starBtns.forEach(btn => {
+            const btnVal = parseInt(btn.dataset.value);
+
+            // Hover preview
+            btn.addEventListener('mouseenter', () => updateStarsDisplay(btnVal));
+            group.addEventListener('mouseleave', () => updateStarsDisplay(selectedValue));
+
+            // Click select
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                selectedValue = btnVal;
+                group.dataset.selected = selectedValue;
+                if (targetInput) targetInput.value = selectedValue;
+                updateStarsDisplay(selectedValue);
+                if (labelSpan) {
+                    labelSpan.textContent = selectedValue ? `${selectedValue}/5 ดาว` : 'ไม่ระบุ';
+                }
+            });
+        });
+    });
+}
+window.initStarPickers = initStarPickers;
+
+function initPlaceReviewForm() {
+    const reviewForm = document.getElementById('place-review-form');
+    if (!reviewForm || reviewForm.dataset.reviewInit) return;
+    reviewForm.dataset.reviewInit = 'true';
+
+    reviewForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const submitBtn = document.getElementById('btn-submit-review');
+        const formData = new FormData(this);
+        const dataObj = {};
+        formData.forEach((val, key) => dataObj[key] = val);
+
+        if (!dataObj.score) {
+            showSystemToast('กรุณาระบุคะแนนรวม (1-5 ดาว)', 'error');
+            return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'กำลังบันทึก...';
+        }
+
+        try {
+            const res = await fetch('/api/reviews/save/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': typeof getCsrfToken === 'function' ? getCsrfToken() : ''
+                },
+                body: JSON.stringify(dataObj)
+            });
+
+            const data = await res.json();
+            if (data.status === 'success') {
+                showSystemToast(data.message, 'success');
+                const avgSpan = document.getElementById('detail-avg-rating');
+                const countSpan = document.getElementById('detail-review-count');
+                if (avgSpan) avgSpan.textContent = parseFloat(data.avg_rating).toFixed(1);
+                if (countSpan) countSpan.textContent = `${data.review_count} รีวิว`;
+
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                showSystemToast(data.message || 'ไม่สามารถบันทึกรีวิวได้', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showSystemToast('เกิดข้อผิดพลาดในการส่งข้อมูล', 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'บันทึกรีวิว';
+            }
+        }
+    });
+}
+window.initPlaceReviewForm = initPlaceReviewForm;
+
+async function deleteReview(reviewId) {
+    if (!confirm('คุณต้องการลบรีวิวนี้ใช่หรือไม่?')) return;
+
+    try {
+        const res = await fetch(`/api/reviews/${reviewId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': typeof getCsrfToken === 'function' ? getCsrfToken() : ''
+            }
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            showSystemToast('ลบรีวิวเรียบร้อยแล้ว', 'success');
+            const card = document.getElementById(`review-card-${reviewId}`);
+            if (card) card.remove();
+            
+            const avgSpan = document.getElementById('detail-avg-rating');
+            const countSpan = document.getElementById('detail-review-count');
+            if (avgSpan) avgSpan.textContent = parseFloat(data.avg_rating).toFixed(1);
+            if (countSpan) countSpan.textContent = `${data.review_count} รีวิว`;
+
+            setTimeout(() => window.location.reload(), 400);
+        } else {
+            showSystemToast(data.message || 'ไม่สามารถลบรีวิวได้', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showSystemToast('เกิดข้อผิดพลาดในการสื่อสาร', 'error');
+    }
+}
+window.deleteReview = deleteReview;
