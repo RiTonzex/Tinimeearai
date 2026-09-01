@@ -65,3 +65,11 @@ staticfiles_build/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ==============================================================================
+# Internal Team Documents & Task Assignments (DO NOT PUSH TO GITHUB)
+# ==============================================================================
+*.pdf
+PROJECT_FEATURE_ASSIGNMENT.*
+assignment_document.*
+
