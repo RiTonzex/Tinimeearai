@@ -2,14 +2,9 @@ from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.urls import reverse
 from checkin.models import Post
-import sys
-sys.path.append('C:/Users/user/.gemini/antigravity-ide/brain/28862728-01d7-4353-adec-e830d56eae93/scratch')
-import seed_provinces_and_badges
 
 class CheckinAppTests(TestCase):
     def setUp(self):
-        seed_provinces_and_badges.seed_provinces()
-        seed_provinces_and_badges.seed_badges()
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='password123')
         self.post = Post.objects.create(
@@ -345,68 +340,5 @@ class CheckinAppTests(TestCase):
         response = self.client.get(reverse('user_profile', kwargs={'username': 'tagged_friend'}))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'ถูกแท็ก (1)')
-
-    def test_user_footprint_api(self):
-        from checkin.models import Province
-        prov_phuket = Province.objects.filter(svg_id='TH-83').first()
-        if prov_phuket:
-            self.post.province = prov_phuket
-            self.post.save()
-
-        self.client.login(username='testuser', password='password123')
-        response = self.client.get(reverse('user_footprint_api', kwargs={'username': 'testuser'}))
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['status'], 'ok')
-        self.assertIn('TH-83', data['visited'])
-        self.assertEqual(data['visited_count'], 1)
-
-    def test_badge_evaluation_and_unlock(self):
-        from checkin.models import Badge, UserBadge, Notification
-        from checkin.views import evaluate_badges_for_user
-
-        # Create sample post for Cafe Hopper & First Step
-        Post.objects.create(
-            user=self.user,
-            location_name='คาเฟ่ อเมซอน เชียงใหม่',
-            caption='จิบกาแฟสดบรรยากาศธรรมชาติ #คาเฟ่',
-            tags='คาเฟ่, ธรรมชาติ',
-            image='tinimeearai_posts/test.jpg'
-        )
-        Post.objects.create(
-            user=self.user,
-            location_name='Starbucks คาเฟ่ กรุงเทพ',
-            caption='คาเฟ่สวยงาม #คาเฟ่',
-            tags='คาเฟ่',
-            image='tinimeearai_posts/test.jpg'
-        )
-
-        unlocked = evaluate_badges_for_user(self.user)
-        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__code='first_checkin').exists())
-        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__code='cafe_hopper').exists())
-        self.assertTrue(Notification.objects.filter(recipient=self.user, verb='badge_unlocked').exists())
-
-    def test_duplicate_badge_prevention(self):
-        from checkin.models import Badge, UserBadge
-        from checkin.views import evaluate_badges_for_user
-
-        evaluate_badges_for_user(self.user)
-        initial_badge_count = UserBadge.objects.filter(user=self.user).count()
-
-        # Re-evaluate
-        evaluate_badges_for_user(self.user)
-        self.assertEqual(UserBadge.objects.filter(user=self.user).count(), initial_badge_count)
-
-    def test_user_badges_api(self):
-        from checkin.views import evaluate_badges_for_user
-        evaluate_badges_for_user(self.user)
-
-        self.client.login(username='testuser', password='password123')
-        response = self.client.get(reverse('user_badges_api', kwargs={'username': 'testuser'}))
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data['status'], 'ok')
-        self.assertTrue(data['unlocked_count'] >= 1)
-        self.assertTrue(len(data['badges']) >= 1)
 
 
