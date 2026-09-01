@@ -179,13 +179,11 @@
                             <span class="inline-flex items-center gap-1 text-amber-400/90 font-medium truncate">
                                 <i data-lucide="users" class="w-3 h-3 text-amber-400 shrink-0"></i>
                                 <span>ร่วมทริปกับ</span>
-                                {% for t_user in post.tagged_users.all %}
-                                    {% if forloop.counter <= 2 %}
-                                        <a href="{% url 'user_profile' username=t_user.username %}" class="text-white hover:text-amber-400 font-bold hover:underline">@{{ t_user.username }}</a>{% if not forloop.last and forloop.counter < 2 %},{% endif %}
-                                    {% endif %}
+                                {% for t_user in post.first_two_tagged_users %}
+                                <a href="{% url 'user_profile' username=t_user.username %}" class="text-white hover:text-amber-400 font-bold hover:underline">@{{ t_user.username }}</a>{% if not forloop.last %},{% endif %}
                                 {% endfor %}
                                 {% if post.extra_tagged_count %}
-                                    <span class="text-zinc-400 font-mono text-[10px]">และอีก {{ post.extra_tagged_count }} คน</span>
+                                <span class="text-zinc-400 font-mono text-[10px]">และอีก {{ post.extra_tagged_count }} คน</span>
                                 {% endif %}
                             </span>
                             {% else %}

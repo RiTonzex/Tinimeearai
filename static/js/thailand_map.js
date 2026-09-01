@@ -95,6 +95,7 @@ const THAILAND_PROVINCES_MAP_DATA = [
 ];
 
 let tooltipEl = null;
+let selectedNode = null;
 
 function renderThailandMap(containerId, visitedSvgIds = []) {
   const container = document.getElementById(containerId);
@@ -124,9 +125,9 @@ function renderThailandMap(containerId, visitedSvgIds = []) {
     const filter = isVisited ? "url(#glow)" : "none";
 
     svgHtml += `
-      <g class="province-node cursor-pointer transition-all duration-300 group" data-id="${p.id}" data-name="${p.name}" data-visited="${isVisited}">
-        <circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" filter="${filter}" class="transition-transform group-hover:scale-125 duration-200" />
-        <text x="${p.x}" y="${p.y + 3}" text-anchor="middle" fill="${isVisited ? '#ffffff' : '#71717a'}" font-size="${Math.max(9, Math.min(12, p.r * 0.55))}" font-weight="bold" font-family="sans-serif" pointer-events="none">
+      <g class="province-node cursor-pointer transition-all duration-200 group" data-id="${p.id}" data-name="${p.name}" data-visited="${isVisited}">
+        <circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" filter="${filter}" class="transition-all duration-150 group-hover:stroke-amber-400 group-hover:stroke-[3.5px]" />
+        <text x="${p.x}" y="${p.y + 3}" text-anchor="middle" fill="${isVisited ? '#ffffff' : '#a1a1aa'}" font-size="${Math.max(9, Math.min(12, p.r * 0.55))}" font-weight="bold" font-family="sans-serif" pointer-events="none" class="group-hover:fill-white">
           ${p.name.substring(0, 4)}
         </text>
       </g>
@@ -137,44 +138,86 @@ function renderThailandMap(containerId, visitedSvgIds = []) {
 
   container.innerHTML = svgHtml;
 
-  // Add event listeners for hover tooltips
+  // Event listeners for static tooltips & click selection
   const nodes = container.querySelectorAll('.province-node');
   nodes.forEach(node => {
-    node.addEventListener('mouseenter', (e) => {
-      const name = node.getAttribute('data-name');
-      const visited = node.getAttribute('data-visited') === 'true';
-      showProvinceTooltip(e, name, visited);
+    node.addEventListener('mouseenter', () => {
+      if (!selectedNode) {
+        showProvinceTooltip(node);
+      }
     });
-    node.addEventListener('mousemove', (e) => {
-      moveProvinceTooltip(e);
-    });
+
     node.addEventListener('mouseleave', () => {
-      hideProvinceTooltip();
+      if (!selectedNode) {
+        hideProvinceTooltip();
+      }
     });
+
+    node.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedNode = node;
+      showProvinceTooltip(node);
+    });
+  });
+
+  // Clear selection on clicking outside
+  document.addEventListener('click', (e) => {
+    if (!container.contains(e.target)) {
+      selectedNode = null;
+      hideProvinceTooltip();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (selectedNode) {
+      positionTooltipOnNode(selectedNode);
+    }
   });
 }
 
-function showProvinceTooltip(e, name, isVisited) {
-  if (!tooltipEl) {
-    tooltipEl = document.createElement('div');
-    tooltipEl.className = 'fixed z-[9999] px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-zinc-700 text-white text-xs font-bold shadow-2xl backdrop-blur-md pointer-events-none transition-opacity duration-150';
-    document.body.appendChild(tooltipEl);
-  }
-  tooltipEl.innerHTML = `<span class="text-white">${name}</span> ${isVisited ? '<span class="text-emerald-400 font-mono ml-1">✓ พิชิตแล้ว</span>' : '<span class="text-zinc-500 font-mono ml-1">ยังไม่เคยไป</span>'}`;
-  moveProvinceTooltip(e);
-  tooltipEl.style.opacity = '1';
+function positionTooltipOnNode(node) {
+  if (!tooltipEl) return;
+  const rect = node.getBoundingClientRect();
+  const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+  const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+  const centerX = rect.left + rect.width / 2 + scrollX;
+  const topY = rect.top + scrollY - 6;
+
+  tooltipEl.style.left = centerX + 'px';
+  tooltipEl.style.top = topY + 'px';
 }
 
-function moveProvinceTooltip(e) {
-  if (tooltipEl) {
-    tooltipEl.style.left = (e.clientX + 12) + 'px';
-    tooltipEl.style.top = (e.clientY + 12) + 'px';
+function showProvinceTooltip(node) {
+  const name = node.getAttribute('data-name');
+  const isVisited = node.getAttribute('data-visited') === 'true';
+
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'absolute z-[9999] px-3.5 py-2 rounded-2xl bg-zinc-950/95 border border-zinc-700/80 text-white text-xs font-bold shadow-2xl backdrop-blur-md pointer-events-none transition-all duration-150 transform -translate-x-1/2 -translate-y-full opacity-0 scale-95';
+    document.body.appendChild(tooltipEl);
   }
+
+  tooltipEl.innerHTML = `
+    <div class="flex items-center gap-2 whitespace-nowrap">
+      <span class="text-white font-black text-xs tracking-tight">${name}</span>
+      ${isVisited 
+        ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold font-mono">✓ พิชิตแล้ว</span>' 
+        : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 font-bold font-mono">ยังไม่เคยไป</span>'}
+    </div>
+  `;
+
+  positionTooltipOnNode(node);
+  requestAnimationFrame(() => {
+    tooltipEl.style.opacity = '1';
+    tooltipEl.style.transform = 'translate(-50%, -100%) scale(1)';
+  });
 }
 
 function hideProvinceTooltip() {
   if (tooltipEl) {
     tooltipEl.style.opacity = '0';
+    tooltipEl.style.transform = 'translate(-50%, -100%) scale(0.95)';
   }
 }
 
