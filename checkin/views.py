@@ -12,7 +12,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.db.models import Q, F
 from django.http import JsonResponse, HttpResponseForbidden
-from .models import Post, PostImage, Comment, Follow, Notification, Profile
+from .models import Post, PostImage, Comment, Follow, Notification, Profile, Province, Badge, UserBadge
 from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm
 
 @login_required(login_url='login')
@@ -213,6 +213,92 @@ def toggle_comment_like(request, pk, comment_id):
 
     return redirect('post_detail', pk=pk)
 
+def detect_province_from_location(location_name, tags=""):
+    """
+    ตรวจจับจังหวัดอัตโนมัติจากชื่อสถานที่ หรือแท็ก
+    """
+    if not location_name and not tags:
+        return None
+    text = f"{location_name or ''} {tags or ''}"
+    provinces = Province.objects.all()
+    for p in provinces:
+        if p.name_th in text or (p.name_en and p.name_en.lower() in text.lower()):
+            return p
+    return None
+
+def evaluate_badges_for_user(user, new_post=None):
+    """
+    ตรวจสอบเงื่อนไขและปลดล็อกเหรียญรางวัล (Badge) ให้ผู้ใช้อัตโนมัติ
+    คืนค่ารายการเหรียญใหม่ที่เพิ่งได้รับ
+    """
+    unearned_badges = Badge.objects.exclude(awarded_to__user=user)
+    if not unearned_badges.exists():
+        return []
+
+    newly_unlocked = []
+    user_posts = Post.objects.filter(user=user, is_hidden=False)
+    post_count = user_posts.count()
+    
+    distinct_provinces_count = user_posts.filter(province__isnull=False).values('province').distinct().count()
+
+    for badge in unearned_badges:
+        unlocked = False
+        config = badge.criteria_config or {}
+
+        if badge.criteria_type == 'POST_COUNT':
+            min_count = config.get('min_count', 1)
+            if post_count >= min_count:
+                unlocked = True
+
+        elif badge.criteria_type == 'PROVINCE_COUNT':
+            min_prov = config.get('min_provinces', 1)
+            if distinct_provinces_count >= min_prov:
+                unlocked = True
+
+        elif badge.criteria_type == 'TAG_COUNT':
+            target_tag = config.get('tag', '')
+            min_count = config.get('min_count', 1)
+            if target_tag:
+                tag_matched_posts = user_posts.filter(
+                    Q(tags__icontains=target_tag) | Q(caption__icontains=target_tag) | Q(location_name__icontains=target_tag)
+                ).count()
+                if tag_matched_posts >= min_count:
+                    unlocked = True
+
+        elif badge.criteria_type == 'TIME_RANGE':
+            start_h = config.get('start_hour', 0)
+            end_h = config.get('end_hour', 23)
+            min_count = config.get('min_count', 1)
+            
+            matching_time_count = 0
+            for p in user_posts:
+                post_hour = p.created_at.hour
+                if start_h <= end_h:
+                    if start_h <= post_hour <= end_h:
+                        matching_time_count += 1
+                else:
+                    if post_hour >= start_h or post_hour <= end_h:
+                        matching_time_count += 1
+            if matching_time_count >= min_count:
+                unlocked = True
+
+        if unlocked:
+            ub, created = UserBadge.objects.get_or_create(
+                user=user,
+                badge=badge,
+                defaults={'related_post': new_post}
+            )
+            if created:
+                newly_unlocked.append(badge)
+                Notification.objects.create(
+                    recipient=user,
+                    actor=user,
+                    verb='badge_unlocked',
+                    post=new_post
+                )
+
+    return newly_unlocked
+
 @login_required(login_url='login')
 def create_post(request):
     """
@@ -231,6 +317,17 @@ def create_post(request):
             post.user = request.user
             if uploaded_files and not post.image:
                 post.image = uploaded_files[0]
+
+            # Auto-detect province if provided or matching location
+            prov_id = request.POST.get('province')
+            if prov_id:
+                try:
+                    post.province_id = int(prov_id)
+                except (ValueError, TypeError):
+                    pass
+            if not post.province:
+                post.province = detect_province_from_location(post.location_name, post.tags)
+
             post.save()
 
             # บันทึกรูปภาพทั้งหมดลงใน PostImage
@@ -269,6 +366,11 @@ def create_post(request):
                         post=post
                     )
 
+            # Evaluate Gamification Badges
+            new_badges = evaluate_badges_for_user(request.user, new_post=post)
+            for b in new_badges:
+                messages.success(request, f'🎉 ปลดล็อกเหรียญรางวัลใหม่: "{b.name}"!')
+
             messages.success(request, 'แชร์ประสบการณ์ "ที่นี่มีอะไร" สำเร็จเรียบร้อยแล้ว! ✨')
             return redirect('post_detail', pk=post.pk)
         else:
@@ -276,7 +378,8 @@ def create_post(request):
     else:
         form = PostForm()
 
-    return render(request, 'checkin/create_post.html', {'form': form})
+    provinces = Province.objects.all()
+    return render(request, 'checkin/create_post.html', {'form': form, 'provinces': provinces})
 
 @login_required(login_url='login')
 def post_edit(request, pk):
@@ -489,6 +592,26 @@ def user_profile_view(request, username):
 
     tagged_posts = target_user.tagged_posts.select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').order_by('-created_at')
 
+    # Gamification Footprint Data
+    visited_svg_ids = list(Province.objects.filter(posts__user=target_user, posts__is_hidden=False).distinct().values_list('svg_id', flat=True))
+    total_provinces = Province.objects.count() or 77
+    visited_count = len(visited_svg_ids)
+    footprint_percentage = round((visited_count / total_provinces * 100), 1)
+
+    # Gamification Badges Data
+    evaluate_badges_for_user(target_user)
+    all_badges = Badge.objects.all()
+    user_badge_map = {ub.badge_id: ub.awarded_at for ub in UserBadge.objects.filter(user=target_user)}
+    
+    badge_items = []
+    for b in all_badges:
+        is_unlocked = b.id in user_badge_map
+        badge_items.append({
+            'badge': b,
+            'unlocked': is_unlocked,
+            'awarded_at': user_badge_map[b.id] if is_unlocked else None
+        })
+
     context = {
         'target_user': target_user,
         'profile': profile,
@@ -501,6 +624,13 @@ def user_profile_view(request, username):
         'following_count': profile.following_count,
         'is_following': is_following,
         'geo_posts': geo_posts,
+        'visited_svg_ids': visited_svg_ids,
+        'visited_count': visited_count,
+        'total_provinces': total_provinces,
+        'footprint_percentage': footprint_percentage,
+        'badge_items': badge_items,
+        'unlocked_badges_count': len(user_badge_map),
+        'total_badges_count': len(all_badges),
         'is_self': (target_user == request.user),
     }
     return render(request, 'checkin/user_profile.html', context)
@@ -970,4 +1100,56 @@ def user_search_api(request):
 
     users_list.sort(key=lambda x: (x['priority'], x['username']))
     return JsonResponse({'status': 'ok', 'users': users_list[:10]})
+
+
+# -----------------------------------------------------------------------------
+# Gamification Footprint & Badges APIs
+# -----------------------------------------------------------------------------
+def user_footprint_api(request, username):
+    """
+    API คืนค่าสถิติและ svg_id ของจังหวัดที่ผู้ใช้เคยโพสต์/เช็คอินอย่างน้อย 1 ครั้ง
+    """
+    target_user = get_object_or_404(User, username=username)
+    visited_provinces = Province.objects.filter(posts__user=target_user, posts__is_hidden=False).distinct()
+    visited_svg_ids = list(visited_provinces.values_list('svg_id', flat=True))
+    total_provinces = Province.objects.count() or 77
+    visited_count = len(visited_svg_ids)
+
+    return JsonResponse({
+        'status': 'ok',
+        'visited': visited_svg_ids,
+        'visited_count': visited_count,
+        'total_provinces': total_provinces,
+        'percentage': round((visited_count / total_provinces * 100), 1) if total_provinces > 0 else 0
+    })
+
+
+def user_badges_api(request, username):
+    """
+    API คืนค่ารายการเหรียญรางวัลทั้งหมดในระบบ พร้อมสถานะปลดล็อก (unlocked)
+    """
+    target_user = get_object_or_404(User, username=username)
+    user_badge_map = {ub.badge_id: ub.awarded_at for ub in UserBadge.objects.filter(user=target_user)}
+    
+    all_badges = Badge.objects.all()
+    badges_list = []
+    for b in all_badges:
+        is_unlocked = b.id in user_badge_map
+        awarded_at = user_badge_map[b.id].strftime('%d/%m/%Y') if is_unlocked else None
+        badges_list.append({
+            'id': b.id,
+            'code': b.code,
+            'name': b.name,
+            'description': b.description,
+            'icon': b.icon,
+            'unlocked': is_unlocked,
+            'awarded_at': awarded_at,
+        })
+
+    return JsonResponse({
+        'status': 'ok',
+        'unlocked_count': len(user_badge_map),
+        'total_badges': len(all_badges),
+        'badges': badges_list
+    })
 
