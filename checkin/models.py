@@ -127,6 +127,10 @@ class Post(models.Model):
         return cnt - 2 if cnt > 2 else 0
 
     @property
+    def first_two_tagged_users(self):
+        return self.tagged_users.all()[:2]
+
+    @property
     def has_multiple_images(self):
         return len(self.get_all_image_urls()) > 1
 
