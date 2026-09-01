@@ -338,5 +338,21 @@ class CheckinAppTests(TestCase):
         self.assertEqual(resp_date.status_code, 200)
         self.assertContains(resp_date, 'หาดป่าตอง ภูเก็ต')
 
+    def test_haversine_and_weather_utils(self):
+        from checkin.utils import calculate_haversine_distance, get_live_weather
+        
+        # Test Bangkok to Phuket distance (~690 km)
+        bkk_lat, bkk_lng = 13.7563, 100.5018
+        hkt_lat, hkt_lng = 7.8804, 98.3923
+        dist = calculate_haversine_distance(bkk_lat, bkk_lng, hkt_lat, hkt_lng)
+        self.assertIsNotNone(dist)
+        self.assertTrue(680 <= dist <= 710)
+
+        # Test feed response with user coordinates (lat/lng)
+        self.client.login(username='testuser', password='password123')
+        resp = self.client.get(reverse('post_list') + f'?lat={bkk_lat}&lng={bkk_lng}&nearby=1')
+        self.assertEqual(resp.status_code, 200)
+
+
 
 

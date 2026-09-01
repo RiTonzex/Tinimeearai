@@ -106,16 +106,20 @@
     </div>
 
     <!-- Clean Modern Feed Tabs (Seamless Underline Stream Selector) -->
-    <div class="flex items-center border-b border-zinc-800/80 px-1">
-        <a href="?feed=smart{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'smart' %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
+    <div class="flex items-center border-b border-zinc-800/80 px-1 overflow-x-auto no-scrollbar">
+        <a href="?feed=smart{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'smart' and not nearby %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
             <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
             <span>สำหรับคุณ</span>
         </a>
-        <a href="?feed=following{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'following' %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
+        <a href="javascript:void(0)" onclick="filterNearbyFeed()" class="flex-1 min-w-[100px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if nearby %}border-emerald-400 text-emerald-400 font-extrabold{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>ใกล้ฉัน (10km)</span>
+        </a>
+        <a href="?feed=following{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'following' and not nearby %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
             <i data-lucide="users" class="w-3.5 h-3.5"></i>
             <span>กำลังติดตาม</span>
         </a>
-        <a href="?feed=explore{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'explore' %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
+        <a href="?feed=explore{% if query %}&q={{ query }}{% endif %}{% if has_geo %}&has_geo={{ has_geo }}{% endif %}" class="flex-1 min-w-[90px] py-2 md:py-3 text-center text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border-b-2 {% if feed_tab == 'explore' and not nearby %}border-white text-white{% else %}border-transparent text-zinc-400 hover:text-zinc-200{% endif %}">
             <i data-lucide="compass" class="w-3.5 h-3.5"></i>
             <span>สำรวจล่าสุด</span>
         </a>
@@ -193,13 +197,24 @@
                             {% endfor %}
                         </div>
 
-                        <!-- Location Overlay Badge -->
-                        {% if post.location_name %}
-                            <div class="absolute bottom-3 left-3 z-20 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl pointer-events-none">
-                                <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
-                                <span>{{ post.location_name }}</span>
-                            </div>
-                        {% endif %}
+                        <!-- Location, Distance & Weather Overlay Badges -->
+                        <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                            {% if post.location_name %}
+                                <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
+                                    <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
+                                    <span>{{ post.location_name }}</span>
+                                    {% if post.distance_km is not None %}
+                                        <span class="text-[11px] text-emerald-400 font-extrabold ml-1 border-l border-white/20 pl-1.5">📍 {{ post.distance_km }} กม.</span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+
+                            {% if post.weather %}
+                                <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-amber-500/30 text-amber-300 text-xs font-extrabold flex items-center gap-1.5 shadow-xl">
+                                    <span>{{ post.weather.display }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
 
                         <!-- Top Right Overlay: Bookmark Ribbon Button -->
                         {% if user.is_authenticated %}
@@ -445,6 +460,37 @@ document.addEventListener('DOMContentLoaded', () => {
             exploreMap.fitBounds(markers, { padding: [30, 30] });
         }
     }
+
+    // Request GPS location on load
+    if ("geolocation" in navigator && !sessionStorage.getItem('geo_requested')) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            sessionStorage.setItem('geo_requested', '1');
+            const urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.has('lat') || !urlParams.has('lng')) {
+                urlParams.set('lat', pos.coords.latitude);
+                urlParams.set('lng', pos.coords.longitude);
+                window.location.search = urlParams.toString();
+            }
+        }, function(err) {
+            console.log("GPS declined or error:", err);
+        }, { timeout: 8000, maximumAge: 600000 });
+    }
 });
+
+function filterNearbyFeed() {
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('lat', pos.coords.latitude);
+            urlParams.set('lng', pos.coords.longitude);
+            urlParams.set('nearby', '1');
+            window.location.search = urlParams.toString();
+        }, function(err) {
+            alert("กรุณาอนุญาตสิทธิ์เข้าถึงตำแหน่ง GPS เพื่อใช้งานฟังก์ชันใกล้ฉัน");
+        });
+    } else {
+        alert("เบราว์เซอร์ของคุณไม่รองรับ GPS Geolocation");
+    }
+}
 </script>
 {% endblock %}
