@@ -109,91 +109,30 @@
         </div>
     </div>
 
-    <!-- 1. Travel Footprint (Thailand 77 Province Conquest) Card -->
-    <div class="p-5 rounded-[2.25rem] glass-card border border-white/[0.08] space-y-4 shadow-2xl relative overflow-hidden">
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-lg">
-                    <i data-lucide="map-pin" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <h2 class="text-sm md:text-base font-black text-white flex items-center gap-2">
-                        <span>แผนที่พิชิตเมืองไทย</span>
-                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold font-mono">77 จังหวัด</span>
-                    </h2>
-                    <p class="text-xs text-zinc-400 mt-0.5">พิชิตแล้ว <span class="font-bold text-white font-mono">{{ visited_count }}</span>/{{ total_provinces }} จังหวัด ({{ footprint_percentage }}%)</p>
-                </div>
-            </div>
-            
-            <button type="button" id="btn-toggle-footprint-map" class="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-white transition active:scale-95 flex items-center gap-1.5">
-                <i data-lucide="map" class="w-3.5 h-3.5 text-amber-400"></i>
-                <span id="footprint-map-btn-text">เปิดดูแผนที่</span>
-            </button>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="w-full bg-zinc-900 rounded-full h-2.5 overflow-hidden border border-zinc-800 p-0.5">
-            <div class="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-700 shadow-lg shadow-emerald-500/20" style="width: {{ footprint_percentage }}%;"></div>
-        </div>
-
-        <!-- Footprint Map Container -->
-        <div id="footprint-map-wrapper" class="hidden pt-2 transition-all duration-300">
-            <div id="thailand-svg-container" class="relative w-full aspect-[4/5] max-w-sm mx-auto bg-zinc-950/80 rounded-2xl border border-zinc-800/80 p-3 shadow-inner flex items-center justify-center overflow-hidden">
-                <!-- Interactive SVG Map loaded dynamically -->
-                <div id="thailand-map-loading" class="text-xs text-zinc-500 font-mono animate-pulse">กำลังโหลดแผนที่ 77 จังหวัด...</div>
-                <div id="thailand-map-svg-box" class="w-full h-full hidden"></div>
-            </div>
-            {{ visited_svg_ids|json_script:"visited-svg-ids-data" }}
-        </div>
-    </div>
-
-    <!-- 2. Gamification Badges Section -->
-    <div class="p-5 rounded-[2.25rem] glass-card border border-white/[0.08] space-y-4 shadow-2xl">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-                <div class="w-9 h-9 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0 shadow-md">
-                    <i data-lucide="award" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <h2 class="text-sm md:text-base font-black text-white">เหรียญรางวัลสะสม</h2>
-                    <p class="text-xs text-zinc-400">ปลดล็อกแล้ว <span class="font-bold text-amber-400 font-mono">{{ unlocked_badges_count }}</span>/{{ total_badges_count }} เหรียญ</p>
-                </div>
-            </div>
-            <span class="text-[11px] text-zinc-400 font-medium">Gamification</span>
-        </div>
-
-        <!-- Badges Grid -->
-        <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
-            {% for item in badge_items %}
-                <div class="relative group p-3 rounded-2xl border text-center space-y-1.5 transition duration-300 active:scale-95 {% if item.unlocked %}bg-gradient-to-b from-zinc-900/90 to-zinc-950 border-amber-500/40 shadow-lg shadow-amber-500/5{% else %}bg-zinc-950/50 border-zinc-800/60 opacity-60 hover:opacity-80{% endif %}">
-                    <div class="w-10 h-10 rounded-2xl mx-auto flex items-center justify-center transition-transform group-hover:scale-110 shadow-md {% if item.unlocked %}bg-amber-400/20 border border-amber-400/40 text-amber-400{% else %}bg-zinc-900 border border-zinc-800 text-zinc-600{% endif %}">
-                        <i data-lucide="{{ item.badge.icon|default:'award' }}" class="w-5 h-5"></i>
+    <!-- Footprint Map (On-demand Lazy Load) -->
+    {% if geo_posts %}
+        <div class="p-5 rounded-[2rem] glass-card border border-white/[0.08] space-y-3 shadow-xl">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 shadow-sm">
+                        <i data-lucide="map" class="w-4 h-4 text-zinc-300"></i>
                     </div>
                     <div class="min-w-0">
-                        <h3 class="text-xs font-bold truncate {% if item.unlocked %}text-white{% else %}text-zinc-500{% endif %}">{{ item.badge.name }}</h3>
-                        <p class="text-[9px] text-zinc-500 line-clamp-1 truncate mt-0.5">
-                            {% if item.unlocked %}
-                                <span class="text-emerald-400 font-semibold">ปลดล็อกแล้ว</span>
-                            {% else %}
-                                {{ item.badge.description }}
-                            {% endif %}
-                        </p>
-                    </div>
-
-                    <!-- Tooltip Hover -->
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-44 p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 shadow-2xl text-left pointer-events-none backdrop-blur-xl">
-                        <p class="text-xs font-bold text-amber-400">{{ item.badge.name }}</p>
-                        <p class="text-[11px] text-zinc-300 mt-1 leading-snug">{{ item.badge.description }}</p>
-                        {% if item.unlocked %}
-                            <span class="inline-block text-[9px] text-emerald-400 font-mono mt-1 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">ปลดล็อกเมื่อ {{ item.awarded_at|date:"d/m/Y" }}</span>
-                        {% else %}
-                            <span class="inline-block text-[9px] text-zinc-500 font-mono mt-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">ยังไม่ปลดล็อก</span>
-                        {% endif %}
+                        <span class="block text-xs md:text-sm font-bold text-white leading-snug">รอยเท้าการเดินทาง</span>
+                        <span class="block text-[10px] text-zinc-400 font-mono font-medium mt-0.5">{{ geo_posts|length }} พิกัดเช็คอิน</span>
                     </div>
                 </div>
-            {% endfor %}
+                <button type="button" id="btn-toggle-profile-map" class="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-sm shrink-0 whitespace-nowrap">
+                    <i data-lucide="map-pin" class="w-3.5 h-3.5 text-zinc-400"></i>
+                    <span id="profile-map-btn-text">เปิดดูแผนที่</span>
+                </button>
+            </div>
+            <div id="profile-map-wrapper" class="hidden space-y-2">
+                <div id="profile-map" class="border border-zinc-800 shadow-2xl"></div>
+            </div>
+            {{ geo_posts|json_script:"user-geo-posts-data" }}
         </div>
-    </div>
+    {% endif %}
 
     <!-- Profile Navigation Tabs Header -->
     <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-950/80 border border-white/[0.08] backdrop-blur-md">
@@ -379,37 +318,60 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 2. Travel Footprint SVG Map Toggle
-    const btnFootprintToggle = document.getElementById('btn-toggle-footprint-map');
-    const btnFootprintText = document.getElementById('footprint-map-btn-text');
-    const footprintWrapper = document.getElementById('footprint-map-wrapper');
-    const visitedDataEl = document.getElementById('visited-svg-ids-data');
-    const visitedSvgIds = visitedDataEl ? JSON.parse(visitedDataEl.textContent) : [];
-    let footprintMapInitialized = false;
+    // 2. Profile Footprint Map
+    {% if geo_posts %}
+    const btnToggle = document.getElementById('btn-toggle-profile-map');
+    const btnText = document.getElementById('profile-map-btn-text');
+    const mapWrapper = document.getElementById('profile-map-wrapper');
+    const dataEl = document.getElementById('user-geo-posts-data');
+    const geoPosts = dataEl ? JSON.parse(dataEl.textContent) : [];
+    let mapInitialized = false;
+    let profileMap = null;
 
-    if (btnFootprintToggle && footprintWrapper) {
-        btnFootprintToggle.addEventListener('click', () => {
-            if (footprintWrapper.classList.contains('hidden')) {
-                footprintWrapper.classList.remove('hidden');
-                btnFootprintText.textContent = 'ซ่อนแผนที่';
+    if (btnToggle && mapWrapper && geoPosts.length > 0) {
+        btnToggle.addEventListener('click', () => {
+            if (mapWrapper.classList.contains('hidden')) {
+                mapWrapper.classList.remove('hidden');
+                btnText.textContent = 'ซ่อนแผนที่';
 
-                if (!footprintMapInitialized) {
-                    const loadingEl = document.getElementById('thailand-map-loading');
-                    const svgBox = document.getElementById('thailand-map-svg-box');
-                    if (loadingEl) loadingEl.classList.add('hidden');
-                    if (svgBox) svgBox.classList.remove('hidden');
-
-                    if (window.renderThailandMap) {
-                        window.renderThailandMap('thailand-map-svg-box', visitedSvgIds);
+                if (!mapInitialized) {
+                    profileMap = L.map('profile-map').setView([geoPosts[0].lat, geoPosts[0].lng], 8);
+                    if (window.getMapTileLayer) {
+                        window.getMapTileLayer().addTo(profileMap);
+                    } else {
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            className: 'dark-map-tiles',
+                            attribution: '&copy; OpenStreetMap contributors'
+                        }).addTo(profileMap);
                     }
-                    footprintMapInitialized = true;
+
+                    const markers = [];
+                    geoPosts.forEach(p => {
+                        const marker = L.marker([p.lat, p.lng]).addTo(profileMap);
+                        const popup = document.createElement('div');
+                        popup.className = 'p-1';
+                        popup.innerHTML = `<strong class="text-white text-xs"></strong><br><a class="text-white font-bold text-[11px] hover:underline">ดูโพสต์ →</a>`;
+                        popup.querySelector('strong').textContent = p.location_name;
+                        popup.querySelector('a').href = encodeURI(p.url);
+
+                        marker.bindPopup(popup);
+                        markers.push([p.lat, p.lng]);
+                    });
+
+                    if (markers.length > 0) {
+                        profileMap.fitBounds(markers, { padding: [30, 30] });
+                    }
+                    mapInitialized = true;
+                } else if (profileMap) {
+                    setTimeout(() => profileMap.invalidateSize(), 100);
                 }
             } else {
-                footprintWrapper.classList.add('hidden');
-                btnFootprintText.textContent = 'เปิดดูแผนที่';
+                mapWrapper.classList.add('hidden');
+                btnText.textContent = 'เปิดดูแผนที่';
             }
         });
     }
+    {% endif %}
 });
 
 function switchProfileTab(tabName) {
