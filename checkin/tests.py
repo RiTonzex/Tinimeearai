@@ -268,4 +268,77 @@ class CheckinAppTests(TestCase):
         self.assertEqual(resp_acc.status_code, 200)
         self.assertContains(resp_acc, 'testuser')
 
+    def test_user_search_api(self):
+        friend = User.objects.create_user(username='friend_user', password='password123')
+        self.client.login(username='testuser', password='password123')
+        
+        response = self.client.get(reverse('user_search_api') + '?q=friend')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(len(data['users']), 1)
+        self.assertEqual(data['users'][0]['username'], 'friend_user')
+
+    from unittest.mock import patch
+
+    @patch('cloudinary.uploader.upload_resource', return_value='tinimeearai_posts/test.jpg')
+    def test_create_post_with_tagged_users_and_notifications(self, mock_upload):
+        from checkin.models import Notification
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        friend1 = User.objects.create_user(username='friend1', password='password123')
+        friend2 = User.objects.create_user(username='friend2', password='password123')
+        self.client.login(username='testuser', password='password123')
+
+        small_png = (
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4'
+            b'\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x03\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82'
+        )
+        img = SimpleUploadedFile("test_tag.png", small_png, content_type="image/png")
+
+        response = self.client.post(reverse('create_post'), {
+            'location_name': 'เกาะพีพี',
+            'caption': 'ทริปดำน้ำสุดฟินกับแก๊งเพื่อน',
+            'image': img,
+            'tagged_user_ids': [friend1.id, friend2.id]
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        new_post = Post.objects.filter(location_name='เกาะพีพี').first()
+        self.assertIsNotNone(new_post)
+        self.assertEqual(new_post.tagged_users.count(), 2)
+        self.assertTrue(new_post.tagged_users.filter(id=friend1.id).exists())
+
+        # Check notifications generated for friend1 and friend2
+        self.assertTrue(Notification.objects.filter(recipient=friend1, verb='post_tagged', actor=self.user, post=new_post).exists())
+        self.assertTrue(Notification.objects.filter(recipient=friend2, verb='post_tagged', actor=self.user, post=new_post).exists())
+
+    def test_edit_post_tagged_users_diff_notifications(self):
+        from checkin.models import Notification
+        friend1 = User.objects.create_user(username='friend_a', password='password123')
+        friend2 = User.objects.create_user(username='friend_b', password='password123')
+        self.post.tagged_users.add(friend1)
+        
+        self.client.login(username='testuser', password='password123')
+
+        # Edit post, keep friend1, add friend2
+        response = self.client.post(reverse('post_edit', kwargs={'pk': self.post.pk}), {
+            'location_name': self.post.location_name,
+            'caption': 'แก้ไขข้อความเพิ่มเติม',
+            'tagged_user_ids': [friend1.id, friend2.id]
+        })
+        self.assertEqual(response.status_code, 302)
+
+        # friend2 should get notification, but friend1 should NOT get a new duplicate notification
+        self.assertFalse(Notification.objects.filter(recipient=friend1, verb='post_tagged', post=self.post).exists())
+        self.assertTrue(Notification.objects.filter(recipient=friend2, verb='post_tagged', post=self.post).exists())
+
+    def test_profile_tagged_posts_query(self):
+        friend = User.objects.create_user(username='tagged_friend', password='password123')
+        self.post.tagged_users.add(friend)
+
+        self.client.login(username='tagged_friend', password='password123')
+        response = self.client.get(reverse('user_profile', kwargs={'username': 'tagged_friend'}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ถูกแท็ก (1)')
+
 

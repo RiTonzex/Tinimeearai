@@ -28,6 +28,7 @@ urlpatterns = [
     path('notifications/<int:pk>/delete/', views.delete_notification, name='delete_notification'),
     path('notifications/mark-all-read/', views.mark_all_notifications_read, name='mark_all_notifications_read'),
     path('api/posts/', views.api_posts, name='api_posts'),
+    path('api/users/search/', views.user_search_api, name='user_search_api'),
     path('auth/google/login/', views.google_login, name='google_login'),
     path('auth/google/callback/', views.google_callback, name='google_callback'),
     path('login/', views.login_view, name='login'),

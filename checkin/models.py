@@ -69,6 +69,17 @@ class Post(models.Model):
         verbose_name="ผู้กดถูกใจ"
     )
     
+    # ผู้ใช้งานร่วมทริปที่ถูกแท็กในโพสต์
+    tagged_users = models.ManyToManyField(
+        User,
+        related_name='tagged_posts',
+        blank=True,
+        verbose_name="ผู้ร่วมทริปที่ถูกแท็ก"
+    )
+
+    is_hidden = models.BooleanField(default=False, verbose_name="ซ่อนโพสต์")
+    avg_rating = models.FloatField(default=0.0, verbose_name="คะแนนเฉลี่ย (1-5 ดาว)")
+    review_count = models.PositiveIntegerField(default=0, verbose_name="จำนวนรีวิว")
     views_count = models.PositiveIntegerField(default=0, verbose_name="จำนวนการเข้าชม")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="แก้ไขล่าสุด")
@@ -414,6 +425,7 @@ class Notification(models.Model):
         ('like_comment', 'ถูกใจความคิดเห็น'),
         ('comment_post', 'แสดงความคิดเห็น'),
         ('follow_user', 'เริ่มติดตามคุณ'),
+        ('post_tagged', 'แท็กคุณในโพสต์ทริป'),
     ]
 
     recipient = models.ForeignKey(
@@ -495,6 +507,9 @@ class Notification(models.Model):
             return f"{actor_name} ถูกใจความคิดเห็นของคุณ{text}"
         elif self.verb == 'follow_user':
             return f"{actor_name} เริ่มติดตามคุณ"
+        elif self.verb == 'post_tagged':
+            loc = f" '{self.post.location_name}'" if self.post and self.post.location_name else ""
+            return f"{actor_name} แท็กคุณในโพสต์ทริป{loc}"
         return f"{actor_name} มีการเคลื่อนไหวใหม่"
 
 

@@ -51,6 +51,10 @@ class PostForm(forms.ModelForm):
             'longitude': forms.HiddenInput(attrs={'id': 'longitude-input'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['image'].required = False
+
     def clean_image(self):
         image = self.cleaned_data.get('image')
         if image:
@@ -87,6 +91,10 @@ class PostEditForm(forms.ModelForm):
             'latitude': forms.HiddenInput(attrs={'id': 'latitude-input'}),
             'longitude': forms.HiddenInput(attrs={'id': 'longitude-input'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['image'].required = False
 
     def clean_image(self):
         image = self.cleaned_data.get('image')

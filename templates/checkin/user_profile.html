@@ -134,72 +134,128 @@
         </div>
     {% endif %}
 
-    <!-- User's Posts Feed Header -->
-    <div class="space-y-3">
-        <div class="flex items-center justify-between px-1">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
-                <i data-lucide="grid" class="w-4 h-4"></i>
-                <span>เรื่องราวการเดินทาง ({{ posts|length }})</span>
-            </h2>
-            <span class="text-[11px] text-zinc-400">ล่าสุดก่อน</span>
-        </div>
+    <!-- Profile Navigation Tabs Header -->
+    <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-zinc-950/80 border border-white/[0.08] backdrop-blur-md">
+        <button type="button" id="tab-btn-posts" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-black shadow-md" onclick="switchProfileTab('posts')">
+            <i data-lucide="grid" class="w-3.5 h-3.5"></i>
+            <span>โพสต์ ({{ posts|length }})</span>
+        </button>
 
-        <!-- Posts List -->
-        <div class="space-y-4">
-            {% for post in posts %}
-                <article class="rounded-[2rem] glass-card glass-card-hover overflow-hidden shadow-xl border border-white/[0.08] group">
-                    <a href="{% url 'post_detail' pk=post.pk %}" class="block relative aspect-[16/10] bg-black overflow-hidden">
-                        <img src="{{ post.get_image_url }}" alt="{{ post.location_name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        
-                        {% if post.location_name %}
-                            <div class="absolute bottom-3 left-3 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
-                                <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
-                                <span>{{ post.location_name }}</span>
-                            </div>
-                        {% endif %}
-                    </a>
+        <button type="button" id="tab-btn-tagged" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white" onclick="switchProfileTab('tagged')">
+            <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+            <span>ถูกแท็ก ({{ tagged_posts|length }})</span>
+        </button>
 
-                    <div class="p-4 md:p-5 space-y-3">
-                        <p class="text-xs md:text-sm text-zinc-200 leading-relaxed line-clamp-2">{{ post.caption }}</p>
+        {% if public_collections %}
+            <button type="button" id="tab-btn-collections" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white" onclick="switchProfileTab('collections')">
+                <i data-lucide="folder" class="w-3.5 h-3.5"></i>
+                <span>ทริป ({{ public_collections|length }})</span>
+            </button>
+        {% endif %}
+    </div>
 
-                        {% if post.tags %}
-                            <div class="flex flex-wrap gap-1.5">
-                                {% for tag in post.tags.split %}
-                                    <span class="px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-[10px] font-medium">
-                                        #{{ tag|cut:"," }}
-                                    </span>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                        <div class="pt-2 flex items-center justify-between border-t border-zinc-800 text-xs text-zinc-400">
-                            <div class="flex items-center gap-3.5">
-                                <span class="flex items-center gap-1 text-zinc-300 font-medium">
-                                    <i data-lucide="heart" class="w-3.5 h-3.5 text-rose-500"></i>
-                                    <span>{{ post.total_likes }}</span>
-                                </span>
-                                <span class="flex items-center gap-1 text-zinc-400 font-medium">
-                                    <i data-lucide="message-circle" class="w-3.5 h-3.5 text-zinc-300"></i>
-                                    <span>{{ post.total_comments }}</span>
-                                </span>
-                                <span class="flex items-center gap-1 text-zinc-400 font-medium">
-                                    <i data-lucide="eye" class="w-3.5 h-3.5 text-zinc-500"></i>
-                                    <span>{{ post.views_count }}</span>
-                                </span>
-                            </div>
-                            <span class="text-[10px] text-zinc-500">{{ post.created_at|timesince }} ที่แล้ว</span>
+    <!-- TAB 1: User's Posts Feed -->
+    <div id="tab-content-posts" class="space-y-4">
+        {% for post in posts %}
+            <article class="rounded-[2rem] glass-card glass-card-hover overflow-hidden shadow-xl border border-white/[0.08] group">
+                <a href="{% url 'post_detail' pk=post.pk %}" class="block relative aspect-[16/10] bg-black overflow-hidden">
+                    <img src="{{ post.get_image_url }}" alt="{{ post.location_name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    
+                    {% if post.location_name %}
+                        <div class="absolute bottom-3 left-3 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
+                            <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
+                            <span>{{ post.location_name }}</span>
                         </div>
+                    {% endif %}
+                </a>
+
+                <div class="p-4 md:p-5 space-y-3">
+                    <p class="text-xs md:text-sm text-zinc-200 leading-relaxed line-clamp-2">{{ post.caption }}</p>
+
+                    {% if post.tags %}
+                        <div class="flex flex-wrap gap-1.5">
+                            {% for tag in post.tags.split %}
+                                <span class="px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-[10px] font-medium">
+                                    #{{ tag|cut:"," }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="pt-2 flex items-center justify-between border-t border-zinc-800 text-xs text-zinc-400">
+                        <div class="flex items-center gap-3.5">
+                            <span class="flex items-center gap-1 text-zinc-300 font-medium">
+                                <i data-lucide="heart" class="w-3.5 h-3.5 text-rose-500"></i>
+                                <span>{{ post.total_likes }}</span>
+                            </span>
+                            <span class="flex items-center gap-1 text-zinc-400 font-medium">
+                                <i data-lucide="message-circle" class="w-3.5 h-3.5 text-zinc-300"></i>
+                                <span>{{ post.total_comments }}</span>
+                            </span>
+                            <span class="flex items-center gap-1 text-zinc-400 font-medium">
+                                <i data-lucide="eye" class="w-3.5 h-3.5 text-zinc-500"></i>
+                                <span>{{ post.views_count }}</span>
+                            </span>
+                        </div>
+                        <span class="text-[10px] text-zinc-500">{{ post.created_at|timesince }} ที่แล้ว</span>
                     </div>
-                </article>
-            {% empty %}
-                <div class="p-8 rounded-3xl glass-card border border-dashed border-zinc-800 text-center space-y-3">
-                    <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center mx-auto">
-                        <i data-lucide="camera-off" class="w-6 h-6"></i>
-                    </div>
-                    <p class="text-xs text-zinc-400">ผู้ใช้นี้ยังไม่มีโพสต์เช็คอิน</p>
                 </div>
-            {% endfor %}
-        </div>
+            </article>
+        {% empty %}
+            <div class="p-8 rounded-3xl glass-card border border-dashed border-zinc-800 text-center space-y-3">
+                <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center mx-auto">
+                    <i data-lucide="camera-off" class="w-6 h-6"></i>
+                </div>
+                <p class="text-xs text-zinc-400">ผู้ใช้นี้ยังไม่มีโพสต์เช็คอิน</p>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- TAB 2: Tagged Posts Feed -->
+    <div id="tab-content-tagged" class="space-y-4 hidden">
+        {% for post in tagged_posts %}
+            <article class="rounded-[2rem] glass-card glass-card-hover overflow-hidden shadow-xl border border-white/[0.08] group">
+                <a href="{% url 'post_detail' pk=post.pk %}" class="block relative aspect-[16/10] bg-black overflow-hidden">
+                    <img src="{{ post.get_image_url }}" alt="{{ post.location_name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    
+                    {% if post.location_name %}
+                        <div class="absolute bottom-3 left-3 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
+                            <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
+                            <span>{{ post.location_name }}</span>
+                        </div>
+                    {% endif %}
+                </a>
+
+                <div class="p-4 md:p-5 space-y-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-zinc-400">โพสต์โดย</span>
+                        <a href="{% url 'user_profile' username=post.user.username %}" class="text-xs font-bold text-amber-400 hover:underline">@{{ post.user.username }}</a>
+                    </div>
+                    <p class="text-xs md:text-sm text-zinc-200 leading-relaxed line-clamp-2">{{ post.caption }}</p>
+
+                    <div class="pt-2 flex items-center justify-between border-t border-zinc-800 text-xs text-zinc-400">
+                        <div class="flex items-center gap-3.5">
+                            <span class="flex items-center gap-1 text-zinc-300 font-medium">
+                                <i data-lucide="heart" class="w-3.5 h-3.5 text-rose-500"></i>
+                                <span>{{ post.total_likes }}</span>
+                            </span>
+                            <span class="flex items-center gap-1 text-zinc-400 font-medium">
+                                <i data-lucide="message-circle" class="w-3.5 h-3.5 text-zinc-300"></i>
+                                <span>{{ post.total_comments }}</span>
+                            </span>
+                        </div>
+                        <span class="text-[10px] text-zinc-500">{{ post.created_at|timesince }} ที่แล้ว</span>
+                    </div>
+                </div>
+            </article>
+        {% empty %}
+            <div class="p-8 rounded-3xl glass-card border border-dashed border-zinc-800 text-center space-y-3">
+                <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center mx-auto">
+                    <i data-lucide="user-x" class="w-6 h-6"></i>
+                </div>
+                <p class="text-xs text-zinc-400">ยังไม่มีโพสต์ที่คุณถูกแท็กในขณะนี้</p>
+            </div>
+        {% endfor %}
     </div>
 
 </div>
@@ -317,5 +373,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     {% endif %}
 });
+
+function switchProfileTab(tabName) {
+    const btnPosts = document.getElementById('tab-btn-posts');
+    const btnTagged = document.getElementById('tab-btn-tagged');
+    const btnCollections = document.getElementById('tab-btn-collections');
+
+    const contentPosts = document.getElementById('tab-content-posts');
+    const contentTagged = document.getElementById('tab-content-tagged');
+    const contentCollections = document.getElementById('tab-content-collections');
+
+    [btnPosts, btnTagged, btnCollections].forEach(btn => {
+        if (btn) {
+            btn.classList.remove('bg-white', 'text-black', 'shadow-md');
+            btn.classList.add('text-zinc-400', 'hover:text-white');
+        }
+    });
+
+    [contentPosts, contentTagged, contentCollections].forEach(content => {
+        if (content) content.classList.add('hidden');
+    });
+
+    if (tabName === 'posts' && btnPosts && contentPosts) {
+        btnPosts.classList.add('bg-white', 'text-black', 'shadow-md');
+        btnPosts.classList.remove('text-zinc-400');
+        contentPosts.classList.remove('hidden');
+    } else if (tabName === 'tagged' && btnTagged && contentTagged) {
+        btnTagged.classList.add('bg-white', 'text-black', 'shadow-md');
+        btnTagged.classList.remove('text-zinc-400');
+        contentTagged.classList.remove('hidden');
+    } else if (tabName === 'collections' && btnCollections && contentCollections) {
+        btnCollections.classList.add('bg-white', 'text-black', 'shadow-md');
+        btnCollections.classList.remove('text-zinc-400');
+        contentCollections.classList.remove('hidden');
+    }
+}
+window.switchProfileTab = switchProfileTab;
 </script>
 {% endblock %}

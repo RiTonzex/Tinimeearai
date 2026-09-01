@@ -31,7 +31,7 @@ function initCarousels() {
 
         function updateCarousel(index, animate = true) {
             currentIndex = Math.max(0, Math.min(index, total - 1));
-            
+
             if (slidesContainer) {
                 const containerWidth = container.offsetWidth || container.getBoundingClientRect().width;
                 if (!animate) {
@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ) {
             link.addEventListener('click', (e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                
+
                 const currentUrl = window.location.pathname + window.location.search;
                 if (href === currentUrl) return;
 
@@ -260,6 +260,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Pull-to-Refresh Gesture for Mobile
     initPullToRefresh();
 
+    // 7. Tag Friends & Co-Travelers Component
+    initUserTagPickers();
+
     window.addEventListener('pageshow', () => {
         if (mainContent) {
             mainContent.classList.remove('page-transition-exit', 'swipe-exit-left', 'swipe-exit-right');
@@ -273,6 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 150);
         }
         initCarousels();
+        initUserTagPickers();
     });
 });
 
@@ -317,7 +321,7 @@ function initPullToRefresh() {
         if (diff > 0) {
             const pullDistance = Math.min(diff * 0.45, 90);
             const progress = Math.min(pullDistance / threshold, 1);
-            
+
             ptr.style.opacity = progress.toString();
             ptr.style.transform = `translate(-50%, ${pullDistance - 10}px) scale(${0.75 + progress * 0.25})`;
             if (icon) {
@@ -339,7 +343,7 @@ function initPullToRefresh() {
             if (icon) {
                 icon.classList.add('animate-spin');
             }
-            
+
             if (navigator.vibrate) {
                 navigator.vibrate(15);
             }
@@ -359,14 +363,169 @@ function initPullToRefresh() {
 }
 
 window.initPullToRefresh = initPullToRefresh;
-
 window.initCarousels = initCarousels;
+
+/**
+ * Interactive @username Co-Travelers Tag Picker & Autocomplete Handler
+ */
+function initUserTagPickers() {
+    const box = document.getElementById('tag-friends-box');
+    if (!box || box.dataset.tagPickerInit) return;
+    box.dataset.tagPickerInit = 'true';
+
+    const input = document.getElementById('tag-user-input');
+    const dropdown = document.getElementById('user-autocomplete-dropdown');
+    const chipsContainer = document.getElementById('tagged-users-chips');
+    const hiddenContainer = document.getElementById('tagged-user-inputs-hidden');
+    const countBadge = document.getElementById('tagged-users-count');
+
+    if (!input || !dropdown || !chipsContainer || !hiddenContainer) return;
+
+    let selectedUsers = new Map(); // id -> { id, username, display_name, avatar_url }
+    let debounceTimer = null;
+
+    function updateChipsDisplay() {
+        chipsContainer.innerHTML = '';
+        hiddenContainer.innerHTML = '';
+
+        const count = selectedUsers.size;
+        if (countBadge) {
+            countBadge.textContent = `${count}/10 คน`;
+            if (count >= 10) {
+                countBadge.classList.add('text-amber-400');
+            } else {
+                countBadge.classList.remove('text-amber-400');
+            }
+        }
+
+        selectedUsers.forEach((user, id) => {
+            const chip = document.createElement('div');
+            chip.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-white shadow-sm';
+
+            const avatarHtml = user.avatar_url
+                ? `<img src="${user.avatar_url}" class="w-4 h-4 rounded-full object-cover">`
+                : `<div class="w-4 h-4 rounded-full bg-zinc-800 text-[9px] font-bold flex items-center justify-center text-amber-400">${(user.username || 'U')[0].toUpperCase()}</div>`;
+
+            chip.innerHTML = `
+                ${avatarHtml}
+                <span class="text-amber-400">@${user.username}</span>
+                <button type="button" class="text-zinc-500 hover:text-white transition font-bold text-xs ml-0.5" data-remove-id="${id}">&times;</button>
+            `;
+
+            chip.querySelector('button').addEventListener('click', (e) => {
+                e.preventDefault();
+                selectedUsers.delete(id);
+                updateChipsDisplay();
+            });
+
+            chipsContainer.appendChild(chip);
+
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'tagged_user_ids';
+            hidden.value = id;
+            hiddenContainer.appendChild(hidden);
+        });
+    }
+
+    // Preload initial hidden inputs (from edit_post)
+    hiddenContainer.querySelectorAll('input[data-user-id]').forEach(inputEl => {
+        const id = parseInt(inputEl.dataset.userId);
+        const username = inputEl.dataset.username || inputEl.value;
+        if (id) {
+            selectedUsers.set(id, { id, username, display_name: username, avatar_url: null });
+        }
+    });
+    updateChipsDisplay();
+
+    async function performSearch() {
+        const query = input.value.trim();
+        try {
+            const res = await fetch(`/api/users/search/?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+
+            if (data.status === 'ok' && data.users && data.users.length > 0) {
+                dropdown.innerHTML = '';
+                let addedCount = 0;
+                data.users.forEach(u => {
+                    if (selectedUsers.has(u.id)) return;
+                    addedCount++;
+
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 transition text-left text-xs';
+
+                    const avatarHtml = u.avatar_url
+                        ? `<img src="${u.avatar_url}" class="w-6 h-6 rounded-lg object-cover bg-zinc-800">`
+                        : `<div class="w-6 h-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-amber-400">${u.username[0].toUpperCase()}</div>`;
+
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2 min-w-0">
+                            ${avatarHtml}
+                            <div class="min-w-0">
+                                <span class="block font-bold text-white truncate">${u.display_name}</span>
+                                <span class="block text-[10px] text-amber-400 font-mono">@${u.username}</span>
+                            </div>
+                        </div>
+                        ${u.is_followed ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">กำลังติดตาม</span>' : ''}
+                    `;
+
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (selectedUsers.size >= 10) {
+                            if (typeof showSystemToast === 'function') {
+                                showSystemToast('แท็กผู้ร่วมทริปได้สูงสุด 10 คนเท่านั้น', 'error');
+                            }
+                            return;
+                        }
+                        selectedUsers.set(u.id, u);
+                        updateChipsDisplay();
+                        input.value = '';
+                        dropdown.classList.add('hidden');
+                    });
+
+                    dropdown.appendChild(item);
+                });
+
+                if (addedCount > 0) {
+                    dropdown.classList.remove('hidden');
+                } else {
+                    dropdown.innerHTML = '<div class="p-3 text-center text-xs text-zinc-500 font-mono">เลือกผู้ใช้ครบถ้วนแล้ว</div>';
+                    dropdown.classList.remove('hidden');
+                }
+            } else {
+                dropdown.innerHTML = '<div class="p-3 text-center text-xs text-zinc-500 font-mono">ไม่พบผู้ใช้ที่ตรงกัน</div>';
+                dropdown.classList.remove('hidden');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    input.addEventListener('focus', function () {
+        performSearch();
+    });
+
+    input.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            performSearch();
+        }, 200);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!box.contains(e.target)) {
+            dropdown.classList.add('hidden');
+        }
+    });
+}
+window.initUserTagPickers = initUserTagPickers;
 
 /**
  * Universal Map Tile Provider based on user preference
  * Defaults to Carto Dark Matter
  */
-window.getMapTileLayer = function() {
+window.getMapTileLayer = function () {
     const style = localStorage.getItem('map_style') || 'dark';
     if (style === 'satellite') {
         return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
