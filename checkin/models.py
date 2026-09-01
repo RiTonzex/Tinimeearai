@@ -145,7 +145,7 @@ class Post(models.Model):
 
     @property
     def total_comments(self):
-        return self.comments.count()
+        return self.comments.filter(is_hidden=False).count()
 
     @property
     def extra_tagged_count(self):
@@ -688,6 +688,14 @@ class Report(models.Model):
         related_name='reports',
         verbose_name="ความคิดเห็นที่ถูกรายงาน"
     )
+    reported_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports_against',
+        verbose_name="ผู้ใช้ที่ถูกรายงาน"
+    )
     reason = models.CharField(
         max_length=50,
         choices=REASON_CHOICES,
@@ -720,7 +728,14 @@ class Report(models.Model):
         verbose_name_plural = "การรายงานทั้งหมด"
 
     def __str__(self):
-        item_str = f"โพสต์ #{self.post_id}" if self.post else (f"ความคิดเห็น #{self.comment_id}" if self.comment else "รายการ")
+        if self.post:
+            item_str = f"โพสต์ #{self.post_id}"
+        elif self.comment:
+            item_str = f"ความคิดเห็น #{self.comment_id}"
+        elif self.reported_user:
+            item_str = f"ผู้ใช้ @{self.reported_user.username}"
+        else:
+            item_str = "รายการ"
         return f"รายงาน {item_str} โดย @{self.reporter.username} [{self.get_status_display()}]"
 
 

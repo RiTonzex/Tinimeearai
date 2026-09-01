@@ -26,12 +26,12 @@
         font-weight: 700;
         box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
     }
-    .filter-chip-indigo input:checked + label {
-        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-        color: #ffffff;
-        border-color: #818cf8;
+    .filter-chip-accent input:checked + label {
+        background: #ffffff;
+        color: #000000;
+        border-color: #ffffff;
         font-weight: 700;
-        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+        box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
     }
     .story-ring {
         background: linear-gradient(135deg, #71717a 0%, #3f3f46 50%, #27272a 100%);
@@ -92,11 +92,11 @@
                     onclick="toggleFilterPanel()" 
                     id="filter-toggle-btn"
                     class="px-4 py-3.5 rounded-2xl border transition font-bold text-xs flex items-center gap-2 shrink-0 active:scale-95 shadow-lg
-                    {% if active_filters_count > 0 %} bg-indigo-600 border-indigo-500 text-white shadow-indigo-600/30 {% else %} bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 {% endif %}">
+                    {% if active_filters_count > 0 %} bg-white border-white text-black shadow-white/10 {% else %} bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 {% endif %}">
                 <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
                 <span class="hidden sm:inline">ตัวกรอง</span>
                 {% if active_filters_count > 0 %}
-                    <span class="w-5 h-5 rounded-full bg-white text-indigo-950 font-extrabold text-[10px] flex items-center justify-center font-mono">
+                    <span class="w-5 h-5 rounded-full bg-black text-white font-extrabold text-[10px] flex items-center justify-center font-mono">
                         {{ active_filters_count }}
                     </span>
                 {% endif %}
@@ -113,7 +113,7 @@
             
             <div class="flex items-center justify-between border-b border-white/10 pb-4">
                 <div class="flex items-center gap-2">
-                    <i data-lucide="filter" class="w-4 h-4 text-indigo-400"></i>
+                    <i data-lucide="filter" class="w-4 h-4 text-white"></i>
                     <h3 class="text-sm font-extrabold text-white">ตัวกรองการค้นหาขั้นสูง (Advanced Filters)</h3>
                 </div>
                 <button type="button" onclick="toggleFilterPanel()" class="text-xs text-zinc-400 hover:text-white font-medium">
@@ -124,7 +124,7 @@
             <!-- Filter 1: ภูมิภาค (6 Regions) -->
             <div class="space-y-2.5">
                 <label class="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
-                    <i data-lucide="map-pin" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <i data-lucide="map-pin" class="w-3.5 h-3.5 text-zinc-300"></i>
                     <span>กรองตามภูมิภาค (6 ภาค)</span>
                 </label>
                 <div class="flex flex-wrap gap-2">
@@ -155,7 +155,7 @@
                 </div>
                 
                 <!-- Custom Province Select Dropdown -->
-                <select name="provinces" multiple class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition max-h-36 font-sans">
+                <select name="provinces" multiple class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-white transition max-h-36 font-sans">
                     {% for prov in all_provinces %}
                         <option value="{{ prov }}" {% if prov in selected_provinces %}selected{% endif %} class="py-1 px-2 rounded hover:bg-zinc-800">
                             📍 {{ prov }}
@@ -206,37 +206,37 @@
                 <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
                     <label class="cursor-pointer">
                         <input type="radio" name="distance" value="all" class="hidden peer" {% if distance_filter == 'all' or not distance_filter %}checked{% endif %}>
-                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-white peer-checked:border-white peer-checked:text-black peer-checked:font-bold transition">
                             ไม่จำกัด
                         </div>
                     </label>
                     <label class="cursor-pointer">
                         <input type="radio" name="distance" value="5" class="hidden peer" {% if distance_filter == '5' %}checked{% endif %} onchange="detectGPSForSearch()">
-                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-white peer-checked:border-white peer-checked:text-black peer-checked:font-bold transition">
                             📍 &le; 5 กม.
                         </div>
                     </label>
                     <label class="cursor-pointer">
                         <input type="radio" name="distance" value="10" class="hidden peer" {% if distance_filter == '10' %}checked{% endif %} onchange="detectGPSForSearch()">
-                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-white peer-checked:border-white peer-checked:text-black peer-checked:font-bold transition">
                             📍 &le; 10 กม.
                         </div>
                     </label>
                     <label class="cursor-pointer">
                         <input type="radio" name="distance" value="25" class="hidden peer" {% if distance_filter == '25' %}checked{% endif %} onchange="detectGPSForSearch()">
-                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-white peer-checked:border-white peer-checked:text-black peer-checked:font-bold transition">
                             📍 &le; 25 กม.
                         </div>
                     </label>
                     <label class="cursor-pointer">
                         <input type="radio" name="distance" value="50" class="hidden peer" {% if distance_filter == '50' %}checked{% endif %} onchange="detectGPSForSearch()">
-                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-white peer-checked:border-white peer-checked:text-black peer-checked:font-bold transition">
                             📍 &le; 50 กม.
                         </div>
                     </label>
                     <label class="cursor-pointer">
                         <input type="radio" name="distance" value="100" class="hidden peer" {% if distance_filter == '100' %}checked{% endif %} onchange="detectGPSForSearch()">
-                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-indigo-600 peer-checked:border-indigo-500 peer-checked:text-white transition">
+                        <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-center text-xs text-zinc-300 font-medium peer-checked:bg-white peer-checked:border-white peer-checked:text-black peer-checked:font-bold transition">
                             📍 &le; 100 กม.
                         </div>
                     </label>
@@ -256,7 +256,7 @@
                 <!-- Date Range -->
                 <div class="space-y-2">
                     <label class="text-xs font-bold text-zinc-300 block">ช่วงเวลาการโพสต์:</label>
-                    <select name="date_range" id="date-range-select" onchange="toggleCustomDates()" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+                    <select name="date_range" id="date-range-select" onchange="toggleCustomDates()" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-white transition">
                         <option value="all" {% if date_range == 'all' %}selected{% endif %}>ทั้งหมด (All Time)</option>
                         <option value="today" {% if date_range == 'today' %}selected{% endif %}>วันนี้</option>
                         <option value="7days" {% if date_range == '7days' %}selected{% endif %}>7 วันล่าสุด</option>
@@ -279,7 +279,7 @@
                 <!-- Sort By -->
                 <div class="space-y-2">
                     <label class="text-xs font-bold text-zinc-300 block">เรียงลำดับตาม:</label>
-                    <select name="sort_by" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+                    <select name="sort_by" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-white transition">
                         <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>ล่าสุด (Newest First)</option>
                         <option value="popular" {% if sort_by == 'popular' %}selected{% endif %}>ได้รับความนิยมสูงสุด (Most Liked)</option>
                         <option value="views" {% if sort_by == 'views' %}selected{% endif %}>จำนวนเข้าชมสูงสุด (Most Viewed)</option>
@@ -295,7 +295,7 @@
                 <a href="{% url 'search' %}?type={{ search_type }}" class="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition text-xs font-bold">
                     ล้างการตั้งค่า
                 </a>
-                <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-lg shadow-indigo-600/30 active:scale-95">
+                <button type="submit" class="px-6 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition shadow-lg shadow-white/10 active:scale-95">
                     นำตัวกรองไปใช้
                 </button>
             </div>

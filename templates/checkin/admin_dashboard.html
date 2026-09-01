@@ -35,9 +35,9 @@
         box-shadow: 0 0 15px rgba(244, 63, 94, 0.15);
     }
 
-    .neon-border-indigo {
-        border-color: rgba(99, 102, 241, 0.4);
-        box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+    .neon-border-white {
+        border-color: rgba(255, 255, 255, 0.25);
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.08);
     }
 
     .neon-border-emerald {
@@ -63,13 +63,13 @@
     
     <!-- Top Header Banner -->
     <div class="relative overflow-hidden rounded-3xl glass-panel p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-white/10">
-        <div class="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-emerald-500/20 via-teal-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-rose-500/10 via-zinc-800/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-zinc-700/20 via-zinc-900/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
 
         <div class="relative z-10 space-y-1.5">
             <div class="flex items-center gap-3">
-                <span class="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                <span class="px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
                     Admin Operations
                 </span>
                 <span class="text-xs text-zinc-400 font-mono">Control Center 2026</span>
@@ -98,12 +98,12 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         
         <!-- Card 1: Total Posts -->
-        <div class="glass-card-accent rounded-3xl p-5 md:p-6 relative overflow-hidden neon-border-indigo">
+        <div class="glass-card-accent rounded-3xl p-5 md:p-6 relative overflow-hidden neon-border-white">
             <div class="flex items-center justify-between">
-                <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                <div class="w-12 h-12 rounded-2xl bg-zinc-800/80 border border-white/10 flex items-center justify-center text-white">
                     <i data-lucide="file-text" class="w-6 h-6"></i>
                 </div>
-                <span class="px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] font-bold">
+                <span class="px-2.5 py-1 rounded-full bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-[11px] font-bold">
                     +{{ today_posts }} วันนี้
                 </span>
             </div>
@@ -185,7 +185,7 @@
         <div class="lg:col-span-2 glass-panel rounded-3xl p-6 space-y-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <div class="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white">
                         <i data-lucide="trending-up" class="w-5 h-5"></i>
                     </div>
                     <div>
@@ -290,8 +290,8 @@
                         <td class="py-4 px-4 max-w-xs">
                             {% if r.post %}
                                 <div class="space-y-1">
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold">
-                                        <i data-lucide="file-text" class="w-3 h-3"></i> โพสต์ #{{ r.post.id }}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-200 text-[10px] font-bold">
+                                        <i data-lucide="file-text" class="w-3 h-3 text-zinc-400"></i> โพสต์ #{{ r.post.id }}
                                     </span>
                                     <p class="text-zinc-300 line-clamp-1 text-xs">
                                         {% if r.post.is_hidden %}
@@ -313,6 +313,19 @@
                                         {{ r.comment.content }}
                                     </p>
                                     <span class="text-[10px] text-zinc-400 block">โดย @{{ r.comment.user.username }}</span>
+                                </div>
+                            {% elif r.reported_user %}
+                                <div class="space-y-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-bold">
+                                        <i data-lucide="user-x" class="w-3 h-3"></i> บัญชีผู้ใช้ @{{ r.reported_user.username }}
+                                    </span>
+                                    <p class="text-zinc-300 line-clamp-1 text-xs">
+                                        {% if r.reported_user.profile.is_banned %}
+                                            <span class="text-rose-400 font-bold">[ถูกระงับสิทธิ์แล้ว]</span>
+                                        {% endif %}
+                                        {{ r.reported_user.profile.get_display_name }}
+                                    </p>
+                                    <a href="{% url 'user_profile' username=r.reported_user.username %}" target="_blank" class="text-[10px] text-zinc-400 hover:text-white underline block">ดูโปรไฟล์สาธารณะ →</a>
                                 </div>
                             {% else %}
                                 <span class="text-zinc-400 italic">[รายการถูกลบออกจากระบบแล้ว]</span>
@@ -401,7 +414,7 @@
         
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                <div class="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
                     <i data-lucide="user-x" class="w-6 h-6"></i>
                 </div>
                 <div>
@@ -418,9 +431,9 @@
                            name="user_q" 
                            value="{{ user_q }}" 
                            placeholder="ค้นหาชื่อผู้ใช้, อีเมล หรือ Display Name..."
-                           class="w-full bg-zinc-950/90 border border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition">
+                           class="w-full bg-zinc-950/90 border border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition">
                 </div>
-                <button type="submit" class="px-4 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shrink-0 shadow-lg">
+                <button type="submit" class="px-4 py-2 rounded-2xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition shrink-0 shadow-lg shadow-white/10">
                     ค้นหา
                 </button>
             </form>
@@ -442,7 +455,7 @@
                         <div class="flex items-center gap-1.5">
                             <span class="font-bold text-sm text-white truncate">@{{ u.username }}</span>
                             {% if u.is_staff %}
-                                <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-bold">STAFF</span>
+                                <span class="px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/30 text-rose-300 text-[9px] font-bold">STAFF</span>
                             {% endif %}
                         </div>
                         <span class="text-xs text-zinc-400 truncate block">{{ u.profile.get_display_name }}</span>
@@ -561,8 +574,8 @@
         // Chart 1: Daily Posts Line Chart
         const ctxDaily = document.getElementById('dailyPostsChart').getContext('2d');
         const gradientDaily = ctxDaily.createLinearGradient(0, 0, 0, 250);
-        gradientDaily.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
-        gradientDaily.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+        gradientDaily.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
+        gradientDaily.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
 
         new Chart(ctxDaily, {
             type: 'line',
@@ -571,13 +584,13 @@
                 datasets: [{
                     label: 'จำนวนโพสต์',
                     data: dailyData,
-                    borderColor: '#818cf8',
+                    borderColor: '#ffffff',
                     borderWidth: 3,
                     backgroundColor: gradientDaily,
                     fill: true,
                     tension: 0.35,
                     pointBackgroundColor: '#ffffff',
-                    pointBorderColor: '#6366f1',
+                    pointBorderColor: '#71717a',
                     pointRadius: 4,
                     pointHoverRadius: 6
                 }]
@@ -619,7 +632,7 @@
                 datasets: [{
                     data: categoryData,
                     backgroundColor: [
-                        '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'
+                        '#ffffff', '#f59e0b', '#10b981', '#f43f5e', '#a1a1aa', '#71717a'
                     ],
                     borderWidth: 2,
                     borderColor: '#09090b'

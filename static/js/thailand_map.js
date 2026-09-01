@@ -107,11 +107,11 @@ function renderThailandMap(containerId, visitedSvgIds = []) {
     <svg viewBox="0 0 800 1020" class="w-full h-full filter drop-shadow-xl select-none" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <radialGradient id="visitedGrad" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#34d399" />
-          <stop offset="100%" stop-color="#059669" />
+          <stop offset="0%" stop-color="#ffffff" />
+          <stop offset="100%" stop-color="#d4d4d8" />
         </radialGradient>
         <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
@@ -119,15 +119,16 @@ function renderThailandMap(containerId, visitedSvgIds = []) {
 
   THAILAND_PROVINCES_MAP_DATA.forEach(p => {
     const isVisited = visitedSet.has(p.id);
-    const fill = isVisited ? "url(#visitedGrad)" : "#18181b";
-    const stroke = isVisited ? "#6ee7b7" : "#3f3f46";
-    const strokeWidth = isVisited ? "2.5" : "1.5";
+    const fill = isVisited ? "url(#visitedGrad)" : "#09090b";
+    const stroke = isVisited ? "#ffffff" : "#27272a";
+    const strokeWidth = isVisited ? "2.5" : "1.2";
     const filter = isVisited ? "url(#glow)" : "none";
+    const textColor = isVisited ? "#09090b" : "#71717a";
 
     svgHtml += `
       <g class="province-node cursor-pointer transition-all duration-200 group" data-id="${p.id}" data-name="${p.name}" data-visited="${isVisited}">
-        <circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" filter="${filter}" class="transition-all duration-150 group-hover:stroke-amber-400 group-hover:stroke-[3.5px]" />
-        <text x="${p.x}" y="${p.y + 3}" text-anchor="middle" fill="${isVisited ? '#ffffff' : '#a1a1aa'}" font-size="${Math.max(9, Math.min(12, p.r * 0.55))}" font-weight="bold" font-family="sans-serif" pointer-events="none" class="group-hover:fill-white">
+        <circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" filter="${filter}" class="transition-all duration-150 group-hover:stroke-white group-hover:stroke-[3px]" />
+        <text x="${p.x}" y="${p.y + 3}" text-anchor="middle" fill="${textColor}" font-size="${Math.max(9, Math.min(12, p.r * 0.55))}" font-weight="bold" font-family="sans-serif" pointer-events="none" class="group-hover:fill-white">
           ${p.name.substring(0, 4)}
         </text>
       </g>
@@ -202,8 +203,8 @@ function showProvinceTooltip(node) {
     <div class="flex items-center gap-2 whitespace-nowrap">
       <span class="text-white font-black text-xs tracking-tight">${name}</span>
       ${isVisited 
-        ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold font-mono">✓ พิชิตแล้ว</span>' 
-        : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 font-bold font-mono">ยังไม่เคยไป</span>'}
+        ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-white text-black font-bold font-mono">✓ พิชิตแล้ว</span>' 
+        : '<span class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-800 font-bold font-mono">ยังไม่เคยไป</span>'}
     </div>
   `;
 

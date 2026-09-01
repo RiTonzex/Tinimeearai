@@ -613,4 +613,94 @@ class CheckinAppTests(TestCase):
         self.assertTrue(data['unlocked_count'] >= 1)
         self.assertTrue(len(data['badges']) >= 1)
 
+    def test_report_comment(self):
+        from checkin.models import Comment, Report
+        other_user = User.objects.create_user(username='commenter', password='password123')
+        comment = Comment.objects.create(post=self.post, user=other_user, content='ข้อความที่ไม่เหมาะสม')
+
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('report_item'), {
+            'item_type': 'comment',
+            'item_id': comment.id,
+            'reason': 'harassment',
+            'details': 'ใช้คำหยาบคาย'
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Report.objects.filter(reporter=self.user, comment=comment, status='pending').exists())
+
+    def test_report_user_profile(self):
+        from checkin.models import Report
+        bad_user = User.objects.create_user(username='spammer', password='password123')
+
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('report_item'), {
+            'item_type': 'user',
+            'item_id': bad_user.id,
+            'reason': 'spam',
+            'details': 'ส่งข้อความสแปมรบกวน'
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Report.objects.filter(reporter=self.user, reported_user=bad_user, status='pending').exists())
+
+    def test_cannot_report_self_profile(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('report_item'), {
+            'item_type': 'user',
+            'item_id': self.user.id,
+            'reason': 'other',
+            'details': 'report myself'
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_admin_resolve_user_report(self):
+        from checkin.models import Report
+        admin_user = User.objects.create_superuser(username='adminboss', password='password123', email='admin@test.com')
+        bad_user = User.objects.create_user(username='rulebreaker', password='password123')
+        report = Report.objects.create(
+            reporter=self.user,
+            reported_user=bad_user,
+            reason='rules_violation',
+            status='pending'
+        )
+
+        self.client.login(username='adminboss', password='password123')
+        response = self.client.post(reverse('admin_resolve_report', kwargs={'report_id': report.id}), {
+            'action': 'hide'
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+
+        self.assertEqual(response.status_code, 200)
+        report.refresh_from_db()
+        self.assertEqual(report.status, 'resolved')
+        bad_user.profile.refresh_from_db()
+        self.assertTrue(bad_user.profile.is_banned)
+
+    def test_hidden_comment_not_visible_to_regular_users(self):
+        from checkin.models import Comment, Report
+        other_user = User.objects.create_user(username='spammer2', password='password123')
+        comment = Comment.objects.create(post=self.post, user=other_user, content='สแปมที่ถูกแอดมินซ่อน')
+        
+        # Admin hides the comment
+        comment.is_hidden = True
+        comment.save()
+
+        # Check total_comments ignores hidden
+        self.assertEqual(self.post.total_comments, 0)
+
+        # Regular user visits post_detail -> comment should not be in context
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('post_detail', kwargs={'pk': self.post.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('สแปมที่ถูกแอดมินซ่อน', response.content.decode('utf-8'))
+
+        # Admin user visits post_detail -> hidden comment is also excluded from post discussion
+        admin_user = User.objects.create_superuser(username='adminboss2', password='password123', email='admin2@test.com')
+        self.client.login(username='adminboss2', password='password123')
+        response_admin = self.client.get(reverse('post_detail', kwargs={'pk': self.post.pk}))
+        self.assertEqual(response_admin.status_code, 200)
+        self.assertNotIn('สแปมที่ถูกแอดมินซ่อน', response_admin.content.decode('utf-8'))
+
+
 

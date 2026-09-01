@@ -192,7 +192,7 @@ def post_detail(request, pk):
 
     reviews = post.reviews.select_related('user', 'user__profile').all()
 
-    comments = post.comments.select_related('user', 'user__profile').all()
+    comments = post.comments.filter(is_hidden=False).select_related('user', 'user__profile').all()
     comment_form = CommentForm()
 
     # คำนวณระยะทางและดึงสภาพอากาศสำหรับหน้ารายละเอียด
@@ -975,15 +975,28 @@ def notifications_view(request):
 @login_required(login_url='login')
 def mark_notification_read(request, pk):
     """
-    ทำเครื่องหมายว่าอ่านแล้ว และเปิดไปยังโพสต์ที่เกี่ยวข้อง
-    หลังจากกดดูแล้ว การแจ้งเตือนนี้จะไม่แสดงในรายการใหม่อีก
+    ทำเครื่องหมายว่าอ่านแล้ว และเปิดไปยังหน้าที่เกี่ยวข้องอย่างถูกต้องและปลอดภัย
     """
     from .models import Notification
     notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
     notification.is_read = True
     notification.save()
+
+    # หากเป็นการปลดล็อกเหรียญรางวัล นำทางไปดูที่หน้าโปรไฟล์ตนเอง
+    if notification.verb == 'badge_unlocked':
+        return redirect('user_profile', username=request.user.username)
+
+    # หากเป็นการเริ่มติดตาม นำทางไปดูโปรไฟล์ของผู้ติดตาม
+    if notification.verb == 'follow_user' and notification.actor:
+        return redirect('user_profile', username=notification.actor.username)
+
+    # หากมีโพสต์ที่เกี่ยวข้อง นำทางไปยังหน้ารายละเอียดโพสต์
     if notification.post:
-        return redirect('post_detail', pk=notification.post.pk)
+        try:
+            return redirect('post_detail', pk=notification.post.pk)
+        except Exception:
+            pass
+
     return redirect('notifications')
 
 @login_required(login_url='login')
@@ -1533,14 +1546,14 @@ def admin_dashboard(request):
 @require_POST
 def report_item(request):
     """
-    API/Form Action ให้ผู้ใช้งานทั่วไปกดส่งรายงานเนื้อหา (Post หรือ Comment)
+    API/Form Action ให้ผู้ใช้งานทั่วไปกดส่งรายงานเนื้อหา (Post, Comment หรือ User Profile)
     """
     item_type = request.POST.get('item_type')
     item_id = request.POST.get('item_id')
     reason = request.POST.get('reason', 'other')
     details = request.POST.get('details', '').strip()
 
-    if not item_id or item_type not in ('post', 'comment'):
+    if not item_id or item_type not in ('post', 'comment', 'user'):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.content_type:
             return JsonResponse({'success': False, 'message': 'ข้อมูลการรายงานไม่ถูกต้อง'}, status=400)
         messages.error(request, 'ข้อมูลการรายงานไม่ถูกต้อง')
@@ -1548,6 +1561,8 @@ def report_item(request):
 
     post_obj = None
     comment_obj = None
+    reported_user_obj = None
+
     if item_type == 'post':
         post_obj = get_object_or_404(Post, pk=item_id)
         if Report.objects.filter(reporter=request.user, post=post_obj, status='pending').exists():
@@ -1556,7 +1571,7 @@ def report_item(request):
                 return JsonResponse({'success': True, 'message': msg})
             messages.info(request, msg)
             return redirect('post_detail', pk=item_id)
-    else:
+    elif item_type == 'comment':
         comment_obj = get_object_or_404(Comment, pk=item_id)
         if Report.objects.filter(reporter=request.user, comment=comment_obj, status='pending').exists():
             msg = 'คุณได้ส่งรายงานความคิดเห็นนี้ไปแล้ว อยู่ระหว่างการตรวจสอบ'
@@ -1564,11 +1579,31 @@ def report_item(request):
                 return JsonResponse({'success': True, 'message': msg})
             messages.info(request, msg)
             return redirect('post_detail', pk=comment_obj.post_id)
+    elif item_type == 'user':
+        if str(item_id).isdigit():
+            reported_user_obj = get_object_or_404(User, pk=int(item_id))
+        else:
+            reported_user_obj = get_object_or_404(User, username=str(item_id).lstrip('@'))
+
+        if reported_user_obj == request.user:
+            msg = 'ไม่สามารถรายงานบัญชีของตนเองได้'
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': msg}, status=400)
+            messages.warning(request, msg)
+            return redirect('user_profile', username=request.user.username)
+
+        if Report.objects.filter(reporter=request.user, reported_user=reported_user_obj, status='pending').exists():
+            msg = f'คุณได้ส่งรายงานผู้ใช้ @{reported_user_obj.username} ไปแล้ว อยู่ระหว่างการตรวจสอบ'
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': msg})
+            messages.info(request, msg)
+            return redirect('user_profile', username=reported_user_obj.username)
 
     Report.objects.create(
         reporter=request.user,
         post=post_obj,
         comment=comment_obj,
+        reported_user=reported_user_obj,
         reason=reason,
         details=details,
         status='pending'
@@ -1583,6 +1618,8 @@ def report_item(request):
         return redirect('post_detail', pk=post_obj.pk)
     elif comment_obj:
         return redirect('post_detail', pk=comment_obj.post_id)
+    elif reported_user_obj:
+        return redirect('user_profile', username=reported_user_obj.username)
     return redirect('post_list')
 
 
@@ -1605,15 +1642,21 @@ def admin_resolve_report(request, report_id):
         if report.comment:
             report.comment.is_hidden = True
             report.comment.save()
+        if report.reported_user:
+            report.reported_user.profile.is_banned = True
+            report.reported_user.profile.save()
         report.status = 'resolved'
-        msg = f'ซ่อนเนื้อหาของรายงาน #{report.id} เรียบร้อยแล้ว'
+        msg = f'ซ่อนเนื้อหา/ระงับสิทธิ์ของรายงาน #{report.id} เรียบร้อยแล้ว'
     elif action == 'delete':
         if report.post:
             report.post.delete()
         elif report.comment:
             report.comment.delete()
+        elif report.reported_user:
+            report.reported_user.profile.is_banned = True
+            report.reported_user.profile.save()
         report.status = 'resolved'
-        msg = f'ลบเนื้อหาของรายงาน #{report.id} เรียบร้อยแล้ว'
+        msg = f'ลบเนื้อหา/ระงับสิทธิ์ของรายงาน #{report.id} เรียบร้อยแล้ว'
     elif action == 'dismiss':
         report.status = 'dismissed'
         msg = f'ปฏิเสธรายงาน #{report.id} เรียบร้อยแล้ว'

@@ -99,8 +99,8 @@
         <div class="flex items-center gap-2">
             {% if user.is_authenticated %}
                 {% if user.is_staff or user.is_superuser %}
-                    <a href="{% url 'admin_dashboard' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/40 border border-indigo-500/40 text-indigo-300 text-xs font-bold hover:bg-indigo-900/60 transition active:scale-95 shadow-sm" title="หน้าจัดการผู้ดูแลระบบ">
-                        <i data-lucide="shield" class="w-3.5 h-3.5 text-indigo-400"></i> แอดมิน
+                    <a href="{% url 'admin_dashboard' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-900/60 transition active:scale-95 shadow-sm" title="หน้าจัดการผู้ดูแลระบบ">
+                        <i data-lucide="shield" class="w-3.5 h-3.5 text-rose-400"></i> แอดมิน
                     </a>
                 {% endif %}
                 {% if user == post.user %}
@@ -367,7 +367,7 @@
                             <p class="text-xs text-zinc-200 leading-relaxed break-words font-normal">
                                 {{ comment.content }}
                             </p>
-                            <!-- Sub Actions: ตอบกลับ / ลบ -->
+                            <!-- Sub Actions: ตอบกลับ / ลบ / รายงาน -->
                             <div class="flex items-center gap-3 pt-0.5 text-[10px] text-zinc-400 font-medium">
                                 <button type="button" class="btn-reply-user text-zinc-400 hover:text-white transition" data-username="{{ comment.user.username }}">
                                     ตอบกลับ
@@ -376,6 +376,11 @@
                                     <a href="{% url 'delete_comment' pk=post.pk comment_id=comment.pk %}" onclick="return confirm('ต้องการลบความคิดเห็นนี้?')" class="text-rose-400/80 hover:text-rose-400">
                                         ลบ
                                     </a>
+                                {% else %}
+                                    <button type="button" onclick="openUserReportModal('comment', {{ comment.id }}, '@{{ comment.user.username }}')" class="text-zinc-500 hover:text-rose-400 flex items-center gap-1 transition" title="รายงานความคิดเห็นนี้">
+                                        <i data-lucide="flag" class="w-3 h-3"></i>
+                                        <span>รายงาน</span>
+                                    </button>
                                 {% endif %}
                             </div>
                         </div>
@@ -715,68 +720,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-</script>
-
-<!-- USER REPORT MODAL -->
-<div id="user-report-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
-    <div class="glass-card max-w-md w-full rounded-3xl p-6 space-y-5 border border-white/10 shadow-2xl relative">
-        <div class="flex items-center justify-between border-b border-white/10 pb-4">
-            <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
-                    <i data-lucide="flag" class="w-4 h-4"></i>
-                </div>
-                <h3 class="text-base font-extrabold text-white">รายงานเนื้อหา</h3>
-            </div>
-            <button type="button" onclick="closeUserReportModal()" class="w-8 h-8 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center">
-                <i data-lucide="x" class="w-4 h-4"></i>
-            </button>
-        </div>
-
-        <form method="POST" action="{% url 'report_item' %}" class="space-y-4">
-            {% csrf_token %}
-            <input type="hidden" name="item_type" id="report-item-type" value="post">
-            <input type="hidden" name="item_id" id="report-item-id" value="">
-
-            <div class="space-y-1.5">
-                <label class="text-xs font-bold text-zinc-300 block">เหตุผลในการรายงาน:</label>
-                <select name="reason" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 transition">
-                    <option value="spam">ขยะ / สแปม (Spam)</option>
-                    <option value="inappropriate">เนื้อหาไม่เหมาะสม / ลามกอนาจาร</option>
-                    <option value="harassment">การคุกคาม / ความเกลียดชัง</option>
-                    <option value="fake_news">ข้อมูลเท็จ / หลอกลวง</option>
-                    <option value="rules_violation">ละเมิดกฎชุมชน</option>
-                    <option value="other" selected>อื่นๆ</option>
-                </select>
-            </div>
-
-            <div class="space-y-1.5">
-                <label class="text-xs font-bold text-zinc-300 block">รายละเอียดเพิ่มเติม (ระบุถ้ามี):</label>
-                <textarea name="details" rows="3" placeholder="อธิบายเพิ่มเติมเกี่ยวกับสาเหตุการรายงาน..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500 transition resize-none"></textarea>
-            </div>
-
-            <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/5">
-                <button type="button" onclick="closeUserReportModal()" class="px-4 py-2 rounded-xl bg-zinc-900 text-zinc-300 font-bold text-xs hover:bg-zinc-800 transition">
-                    ยกเลิก
-                </button>
-                <button type="submit" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-900/30">
-                    ส่งรายงาน
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-    function openUserReportModal(itemType, itemId) {
-        document.getElementById('report-item-type').value = itemType;
-        document.getElementById('report-item-id').value = itemId;
-        document.getElementById('user-report-modal').classList.remove('hidden');
-        document.getElementById('user-report-modal').classList.add('flex');
-    }
-    function closeUserReportModal() {
-        document.getElementById('user-report-modal').classList.add('hidden');
-        document.getElementById('user-report-modal').classList.remove('flex');
-    }
 </script>
 
 {{ post.get_all_image_urls|json_script:"post-images-json" }}

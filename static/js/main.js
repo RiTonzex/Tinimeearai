@@ -4,12 +4,13 @@
  */
 
 function getCsrfToken() {
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    if (meta && meta.content) return meta.content;
-    const input = document.querySelector('[name=csrfmiddlewaretoken]');
+    const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
     if (input && input.value) return input.value;
-    const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
-    return cookie ? cookie.split('=')[1] : '';
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.content && meta.content.length > 5) return meta.content;
+    const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (match && match[1]) return decodeURIComponent(match[1]);
+    return '';
 }
 
 function initCarousels() {
@@ -22,7 +23,11 @@ function initCarousels() {
         const counter = container.querySelector('.carousel-counter');
         const total = slides.length;
 
-        if (total <= 1 || !slidesContainer) return;
+        if (total <= 1 || !slidesContainer) {
+            if (prevBtn) prevBtn.style.display = 'none';
+            if (nextBtn) nextBtn.style.display = 'none';
+            return;
+        }
 
         let currentIndex = parseInt(container.dataset.currentIndex || '0', 10) || 0;
 
@@ -30,14 +35,13 @@ function initCarousels() {
             currentIndex = Math.max(0, Math.min(index, total - 1));
             container.dataset.currentIndex = currentIndex;
 
-            const containerWidth = container.offsetWidth || container.getBoundingClientRect().width || window.innerWidth;
-            if (slidesContainer && containerWidth > 0) {
+            if (slidesContainer) {
                 if (!animate) {
                     slidesContainer.style.transition = 'none';
                 } else {
-                    slidesContainer.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+                    slidesContainer.style.transition = 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
                 }
-                slidesContainer.style.transform = `translate3d(-${currentIndex * containerWidth}px, 0, 0)`;
+                slidesContainer.style.transform = `translateX(-${currentIndex * 100}%)`;
             }
 
             if (counter) {
@@ -71,22 +75,6 @@ function initCarousels() {
         if (!container.dataset.carouselInit) {
             container.dataset.carouselInit = 'true';
 
-            if (prevBtn) {
-                prevBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    updateCarousel(currentIndex - 1);
-                });
-            }
-
-            if (nextBtn) {
-                nextBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    updateCarousel(currentIndex + 1);
-                });
-            }
-
             // Touch swipe gesture support
             let startX = 0;
             let startY = 0;
@@ -118,8 +106,9 @@ function initCarousels() {
         updateCarousel(currentIndex, false);
     });
 }
+window.initCarousels = initCarousels;
 
-// Global Carousel Button Click Delegation
+// Global Carousel Button Click Delegation (single source of truth)
 document.addEventListener('click', (e) => {
     const prevBtn = e.target.closest('.carousel-btn-prev');
     if (prevBtn) {
@@ -154,39 +143,42 @@ document.addEventListener('click', async (e) => {
     const url = likeBtn.dataset.url;
     if (!url) return;
 
-    const heartIcon = likeBtn.querySelector('svg') || likeBtn.querySelector('i');
+    if (likeBtn.dataset.busy === 'true') return;
+    likeBtn.dataset.busy = 'true';
+
+    const heartIcon = likeBtn.querySelector('svg, i');
     const countSpan = likeBtn.querySelector('.post-likes-count');
+
+    function checkIsLiked() {
+        if (!heartIcon) return false;
+        return heartIcon.classList.contains('fill-rose-500') ||
+               heartIcon.classList.contains('text-rose-500') ||
+               heartIcon.getAttribute('fill') === '#f43f5e' ||
+               heartIcon.style.fill === '#f43f5e';
+    }
 
     function setHeartState(isLiked) {
         if (!heartIcon) return;
         if (isLiked) {
             heartIcon.classList.add('text-rose-500', 'fill-rose-500');
             heartIcon.classList.remove('text-zinc-400', 'text-zinc-300');
-            heartIcon.setAttribute('fill', '#f43f5e');
-            heartIcon.setAttribute('stroke', '#f43f5e');
+            heartIcon.style.color = '#f43f5e';
             heartIcon.style.fill = '#f43f5e';
             heartIcon.style.stroke = '#f43f5e';
         } else {
             heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
             heartIcon.classList.add('text-zinc-400');
-            heartIcon.setAttribute('fill', 'none');
-            heartIcon.setAttribute('stroke', 'currentColor');
+            heartIcon.style.color = '';
             heartIcon.style.fill = 'none';
             heartIcon.style.stroke = 'currentColor';
         }
     }
 
-    const isCurrentlyLiked = heartIcon ? (
-        heartIcon.classList.contains('fill-rose-500') ||
-        heartIcon.classList.contains('text-rose-500') ||
-        heartIcon.getAttribute('fill') === '#f43f5e' ||
-        heartIcon.style.fill === '#f43f5e'
-    ) : false;
-
+    const isCurrentlyLiked = checkIsLiked();
     let currentCount = countSpan ? (parseInt(countSpan.textContent.replace(/[^0-9]/g, '')) || 0) : 0;
-
-    // Optimistic UI toggle
     const nextLikedState = !isCurrentlyLiked;
+
+    // Instant optimistic visual toggle
     setHeartState(nextLikedState);
     if (nextLikedState && heartIcon) {
         heartIcon.style.transform = 'scale(1.35)';
@@ -228,15 +220,15 @@ document.addEventListener('click', async (e) => {
             }
         } else {
             console.error('Like request failed with status:', res.status);
-            // Rollback on server error
             setHeartState(isCurrentlyLiked);
             if (countSpan) countSpan.textContent = currentCount;
         }
     } catch (err) {
         console.error('Like sync error:', err);
-        // Rollback on network error
         setHeartState(isCurrentlyLiked);
         if (countSpan) countSpan.textContent = currentCount;
+    } finally {
+        likeBtn.dataset.busy = 'false';
     }
 });
 
@@ -341,7 +333,6 @@ onDomReady(() => {
 /**
  * Modern 60fps Pull-to-Refresh Gesture
  */
->>>>>>> origin/feature/travel-footprint-gamificationอ
 function initPullToRefresh() {
     let startY = 0;
     let currentY = 0;
@@ -495,8 +486,11 @@ function initBookmarkButtons() {
 
             const postId = this.dataset.postId;
             openBookmarkModal(postId);
-=======
+        });
+    });
+}
 window.initPullToRefresh = initPullToRefresh;
+window.initBookmarkButtons = initBookmarkButtons;
 window.initCarousels = initCarousels;
 
 /**
@@ -1021,3 +1015,94 @@ async function deleteReview(reviewId) {
     }
 }
 window.deleteReview = deleteReview;
+
+// -----------------------------------------------------------------------------
+// Global System Toast Notification Helper
+// -----------------------------------------------------------------------------
+function showSystemToast(message, type = 'info') {
+    let container = document.getElementById('dynamic-system-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'dynamic-system-toast-container';
+        container.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-[300] flex flex-col items-center gap-2 pointer-events-none w-full max-w-sm px-4';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    const bgClass = type === 'success' ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200' :
+                    type === 'error' ? 'bg-rose-950/90 border-rose-500/40 text-rose-200' :
+                    type === 'warning' ? 'bg-amber-950/90 border-amber-500/40 text-amber-200' :
+                    'bg-zinc-900/90 border-white/10 text-white';
+
+    const iconHtml = type === 'success' ? '✓' :
+                     type === 'error' ? '✕' :
+                     type === 'warning' ? '⚠' : 'ℹ';
+
+    toast.className = `pointer-events-auto px-4 py-2.5 rounded-2xl border text-xs font-bold shadow-2xl backdrop-blur-xl flex items-center gap-2.5 transition-all duration-300 transform -translate-y-4 opacity-0 ${bgClass}`;
+    toast.innerHTML = `<span class="w-5 h-5 rounded-full bg-black/40 flex items-center justify-center text-[10px] shrink-0 font-mono">${iconHtml}</span><span class="leading-tight">${message}</span>`;
+
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        toast.classList.remove('-translate-y-4', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+    });
+
+    setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('-translate-y-4', 'opacity-0');
+        setTimeout(() => {
+            if (toast.parentNode) toast.remove();
+        }, 300);
+    }, 3200);
+}
+window.showSystemToast = showSystemToast;
+
+// -----------------------------------------------------------------------------
+// Global Report Form AJAX Submission Handler
+// -----------------------------------------------------------------------------
+onDomReady(() => {
+    const reportForm = document.getElementById('global-report-form');
+    if (reportForm) {
+        reportForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('btn-submit-report');
+            const originalText = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="animate-spin text-xs">⏳</span> กำลังส่ง...';
+            }
+
+            try {
+                const formData = new FormData(reportForm);
+                const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                const res = await fetch(reportForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': csrf,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.success) {
+                    showSystemToast(data.message || 'ส่งรายงานเรียบร้อยแล้ว', 'success');
+                    if (typeof closeUserReportModal === 'function') {
+                        closeUserReportModal();
+                    }
+                } else {
+                    showSystemToast(data.message || 'เกิดข้อผิดพลาดในการส่งรายงาน', 'error');
+                }
+            } catch (err) {
+                console.error('Report submission error:', err);
+                showSystemToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+        });
+    }
+});

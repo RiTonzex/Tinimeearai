@@ -299,8 +299,8 @@
 
         {% if user.is_staff or user.is_superuser %}
         <!-- 6. แอดมิน (Admin Dashboard) -->
-        <a href="{% url 'admin_dashboard' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if '/admin-dashboard' in request.path %}bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-600/30{% else %}text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/40{% endif %}" title="แอดมิน Dashboard">
-            <i data-lucide="shield-alert" class="w-5 h-5 {% if '/admin-dashboard' in request.path %}text-white{% else %}text-indigo-400{% endif %}"></i>
+        <a href="{% url 'admin_dashboard' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if '/admin-dashboard' in request.path %}bg-rose-600 text-white font-bold shadow-lg shadow-rose-600/30{% else %}text-rose-400 hover:text-rose-300 hover:bg-rose-950/40{% endif %}" title="แอดมิน Dashboard">
+            <i data-lucide="shield-alert" class="w-5 h-5 {% if '/admin-dashboard' in request.path %}text-white{% else %}text-rose-400{% endif %}"></i>
             <span class="text-[9px] font-bold mt-0.5">แอดมิน</span>
         </a>
         {% endif %}
@@ -340,10 +340,10 @@
     <!-- Mobile Bottom App Dock (Clean Minimalist Luxury Dock) -->
     {% if user.is_authenticated %}
     <nav class="fixed bottom-3 left-4 right-4 z-40 sm:hidden glass-header rounded-3xl border border-white/10 shadow-2xl safe-bottom">
-        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-7{% else %}grid-cols-6{% endif %} items-center h-16 px-1">
+        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-6{% else %}grid-cols-5{% endif %} items-center h-16 px-1">
             <!-- 1. สำรวจ -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="สำรวจ">
+                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="สำรวจ">
                     <i data-lucide="compass" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">สำรวจ</span>
                 </a>
@@ -351,33 +351,33 @@
 
             <!-- 2. ค้นหา -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="ค้นหา">
+                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="ค้นหา">
                     <i data-lucide="search" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">ค้นหา</span>
                 </a>
             </div>
 
+            <!-- CENTER STANDOUT ACTION BUTTON: เช็คอิน (+) Pure White Luxury Style -->
+            <div class="flex items-center justify-center relative">
+                <a href="{% url 'create_post' %}" class="flex flex-col items-center justify-center -translate-y-4 group transition active:scale-90" title="สร้างโพสต์เช็คอินใหม่">
+                    <div class="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-xl shadow-white/20 border-[3.5px] border-[#09090b] transition-transform duration-200 group-hover:scale-110">
+                        <i data-lucide="plus" class="w-6 h-6 stroke-[3] text-black"></i>
+                    </div>
+                    <span class="text-[9px] mt-0.5 font-bold text-white tracking-tight">เช็คอิน</span>
+                </a>
+            </div>
+
             <!-- 3. คอลเลกชัน -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'saved_collections' %}" class="flex flex-col items-center justify-center {% if '/planner/collections' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="คอลเลกชัน">
+                <a href="{% url 'saved_collections' %}" class="flex flex-col items-center justify-center {% if '/planner/collections' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="คอลเลกชัน">
                     <i data-lucide="bookmark" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">คอลเลกชัน</span>
                 </a>
             </div>
 
-            <!-- CENTER STANDOUT ACTION BUTTON: เช็คอิน (+) -->
-            <div class="flex items-center justify-center relative">
-                <a href="{% url 'create_post' %}" class="flex flex-col items-center justify-center -translate-y-4 group transition active:scale-90" title="สร้างโพสต์เช็คอินใหม่">
-                    <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-400 via-amber-300 to-amber-500 text-black flex items-center justify-center shadow-lg shadow-amber-500/30 border-[3.5px] border-[#09090b] transition-transform duration-200 group-hover:scale-110">
-                        <i data-lucide="plus" class="w-6 h-6 stroke-[3] text-black"></i>
-                    </div>
-                    <span class="text-[9px] mt-0.5 font-black text-amber-400">เช็คอิน</span>
-                </a>
-            </div>
-
             <!-- 4. โปรไฟล์สาธารณะ -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="โปรไฟล์">
+                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="โปรไฟล์">
                     <div class="w-5 h-5 rounded-full overflow-hidden border {% if '/profile/' in request.path and user.username in request.path %}border-white ring-1 ring-white/40{% else %}border-zinc-600{% endif %} flex items-center justify-center bg-zinc-900 shadow-sm">
                         {% if user.profile.get_avatar_url %}
                             <img src="{{ user.profile.get_avatar_url }}" alt="Profile" class="w-full h-full object-cover">
@@ -389,18 +389,10 @@
                 </a>
             </div>
 
-            <!-- 5. ตั้งค่า (แสดงผลให้ผู้ใช้ทุกคน) -->
-            <div class="flex items-center justify-center">
-                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[34px] py-1" title="ตั้งค่า">
-                    <i data-lucide="settings" class="w-5 h-5"></i>
-                    <span class="text-[9px] mt-1 font-medium">ตั้งค่า</span>
-                </a>
-            </div>
-
             {% if user.is_staff or user.is_superuser %}
-            <!-- 6. แอดมิน (สำหรับ Staff) -->
+            <!-- 5. แอดมิน (สำหรับ Staff) -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'admin_dashboard' %}" class="flex flex-col items-center justify-center {% if '/admin-dashboard' in request.path %}text-rose-400 font-bold{% else %}text-rose-400/70 hover:text-rose-300{% endif %} active:scale-90 transition min-w-[34px] py-1" title="แอดมิน">
+                <a href="{% url 'admin_dashboard' %}" class="flex flex-col items-center justify-center {% if '/admin-dashboard' in request.path %}text-rose-400 font-bold{% else %}text-rose-400/70 hover:text-rose-300{% endif %} active:scale-90 transition min-w-[36px] py-1" title="แอดมิน">
                     <i data-lucide="shield-alert" class="w-5 h-5"></i>
                     <span class="text-[9px] mt-1 font-medium">แอดมิน</span>
                 </a>
@@ -464,13 +456,113 @@
         </div>
     </div>
 
+    <!-- GLOBAL USER / POST / COMMENT REPORT MODAL -->
+    <div id="user-report-modal" class="fixed inset-0 z-[150] bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="glass-card max-w-md w-full rounded-3xl p-6 space-y-5 border border-white/10 shadow-2xl relative animate-scale-up">
+            <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                        <i data-lucide="flag" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-white" id="report-modal-title">รายงานเนื้อหา</h3>
+                        <p class="text-[11px] text-zinc-400" id="report-modal-subtitle">ระบุสาเหตุที่ต้องการส่งให้ทีมงานตรวจสอบ</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeUserReportModal()" class="w-8 h-8 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center transition active:scale-90">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <form method="POST" action="{% url 'report_item' %}" id="global-report-form" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="item_type" id="report-item-type" value="post">
+                <input type="hidden" name="item_id" id="report-item-id" value="">
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-zinc-300 block">เหตุผลในการรายงาน:</label>
+                    <select name="reason" id="report-reason-select" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500 transition">
+                        <option value="spam">ขยะ / สแปม (Spam)</option>
+                        <option value="inappropriate">เนื้อหาไม่เหมาะสม / ลามกอนาจาร</option>
+                        <option value="harassment">การคุกคาม / ความเกลียดชัง</option>
+                        <option value="fake_news">ข้อมูลเท็จ / หลอกลวง</option>
+                        <option value="rules_violation">ละเมิดกฎชุมชน</option>
+                        <option value="other" selected>อื่นๆ</option>
+                    </select>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-zinc-300 block">รายละเอียดเพิ่มเติม (ระบุถ้ามี):</label>
+                    <textarea name="details" id="report-details-textarea" rows="3" placeholder="อธิบายเพิ่มเติมเกี่ยวกับสาเหตุการรายงาน..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500 transition resize-none"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/5">
+                    <button type="button" onclick="closeUserReportModal()" class="px-4 py-2.5 rounded-xl bg-zinc-900 text-zinc-300 font-bold text-xs hover:bg-zinc-800 transition">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" id="btn-submit-report" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-900/30 active:scale-95 flex items-center gap-1.5">
+                        <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                        <span>ส่งรายงาน</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Init Lucide Icons -->
     <script>
         lucide.createIcons();
+
+        window.openUserReportModal = function(itemType, itemId, targetName) {
+            const modal = document.getElementById('user-report-modal');
+            const typeInput = document.getElementById('report-item-type');
+            const idInput = document.getElementById('report-item-id');
+            const titleEl = document.getElementById('report-modal-title');
+            const subtitleEl = document.getElementById('report-modal-subtitle');
+            const detailsInput = document.getElementById('report-details-textarea');
+
+            if (!modal || !typeInput || !idInput) return;
+
+            typeInput.value = itemType;
+            idInput.value = itemId;
+            if (detailsInput) detailsInput.value = '';
+
+            if (itemType === 'post') {
+                if (titleEl) titleEl.textContent = 'รายงานโพสต์';
+                if (subtitleEl) subtitleEl.textContent = targetName ? `รายงานโพสต์: "${targetName}"` : 'รายงานโพสต์ที่ทำผิดกฎชุมชน';
+            } else if (itemType === 'comment') {
+                if (titleEl) titleEl.textContent = 'รายงานความคิดเห็น';
+                if (subtitleEl) subtitleEl.textContent = targetName ? `รายงานความคิดเห็น: "${targetName}"` : 'รายงานความคิดเห็นที่ไม่เหมาะสม';
+            } else if (itemType === 'user') {
+                if (titleEl) titleEl.textContent = 'รายงานบัญชีผู้ใช้งาน';
+                if (subtitleEl) subtitleEl.textContent = targetName ? `รายงานบัญชีผู้ใช้ ${targetName}` : 'รายงานบัญชีผู้ใช้งานที่กระทำผิดกฎ';
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.closeUserReportModal = function() {
+            const modal = document.getElementById('user-report-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const reportModal = document.getElementById('user-report-modal');
+            if (reportModal) {
+                reportModal.addEventListener('click', (e) => {
+                    if (e.target === reportModal) closeUserReportModal();
+                });
+            }
+        });
     </script>
     <!-- Custom Main JS with Cache Busting -->
-    <script src="{% static 'js/thailand_map.js' %}?v=20260901_footprint"></script>
-    <script src="{% static 'js/main.js' %}?v=20260902_instant_interactive"></script>
+    <script src="{% static 'js/thailand_map.js' %}?v=20260902_platinum_harmony"></script>
+    <script src="{% static 'js/main.js' %}?v=20260902_clean_js_v3"></script>
     {% block extra_js %}{% endblock %}
 
 </body>
