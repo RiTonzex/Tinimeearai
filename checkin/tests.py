@@ -132,7 +132,7 @@ class CheckinAppTests(TestCase):
         self.assertEqual(self.user.profile.bio, 'ชอบถ่ายรูปและปักหมุดคาเฟ่ ☕')
         self.assertEqual(self.user.first_name, 'Somchai')
         self.assertEqual(self.user.email, 'somchai@example.com')
-        self.assertTrue(bool(self.user.profile.avatar))
+        self.assertTrue(self.user.profile.display_name == 'พี่ต๊ะ สายชิล')
 
     def test_user_public_profile_view(self):
         self.client.login(username='testuser', password='password123')
@@ -267,5 +267,58 @@ class CheckinAppTests(TestCase):
         resp_acc = self.client.get(reverse('search') + '?q=testuser&type=accounts')
         self.assertEqual(resp_acc.status_code, 200)
         self.assertContains(resp_acc, 'testuser')
+
+    def test_admin_dashboard_and_moderation(self):
+        # Create staff user
+        staff_user = User.objects.create_superuser(username='adminstaff', password='adminpassword')
+        
+        # Non-staff user access redirect
+        self.client.login(username='testuser', password='password123')
+        resp_denied = self.client.get(reverse('admin_dashboard'))
+        self.assertEqual(resp_denied.status_code, 302)
+
+        # Staff user access
+        self.client.login(username='adminstaff', password='adminpassword')
+        resp_admin = self.client.get(reverse('admin_dashboard'))
+        self.assertEqual(resp_admin.status_code, 200)
+        self.assertContains(resp_admin, 'Admin Dashboard')
+
+        # Test submit report
+        self.client.login(username='testuser', password='password123')
+        resp_report = self.client.post(reverse('report_item'), {
+            'item_type': 'post',
+            'item_id': self.post.id,
+            'reason': 'spam',
+            'details': 'เนื้อหาสแปมทดสอบ'
+        })
+        self.assertEqual(resp_report.status_code, 302)
+        
+        from checkin.models import Report
+        report = Report.objects.filter(post=self.post).first()
+        self.assertIsNotNone(report)
+        self.assertEqual(report.status, 'pending')
+
+        # Staff resolve report (hide content)
+        self.client.login(username='adminstaff', password='adminpassword')
+        resp_resolve = self.client.post(reverse('admin_resolve_report', kwargs={'report_id': report.id}), {
+            'action': 'hide'
+        })
+        self.assertEqual(resp_resolve.status_code, 302)
+        report.refresh_from_db()
+        self.assertEqual(report.status, 'resolved')
+        self.post.refresh_from_db()
+        self.assertTrue(self.post.is_hidden)
+
+        # Staff toggle ban user
+        resp_ban = self.client.post(reverse('admin_toggle_ban_user', kwargs={'user_id': self.user.id}))
+        self.assertEqual(resp_ban.status_code, 302)
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.is_banned)
+
+        # Banned user cannot login
+        self.client.logout()
+        resp_login_banned = self.client.post(reverse('login'), {'username': 'testuser', 'password': 'password123'}, follow=True)
+        self.assertContains(resp_login_banned, 'ถูกระงับการใช้งาน')
+
 
 
