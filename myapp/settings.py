@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'cloudinary',
     # Local Apps
     'checkin',
+    'planner',
 ]
 
 

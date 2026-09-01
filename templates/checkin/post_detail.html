@@ -169,9 +169,21 @@
                 </div>
             {% endif %}
 
+            <!-- Top Right Overlay: Bookmark Ribbon Button & Collection Picker Trigger -->
+            {% if user.is_authenticated %}
+                <div class="absolute top-4 right-4 z-30 flex items-center gap-2">
+                    <button type="button" onclick="openBookmarkModal('{{ post.pk }}')" class="p-2 rounded-2xl bg-black/75 hover:bg-black text-zinc-300 hover:text-white backdrop-blur-md border border-white/20 shadow-xl transition active:scale-90" title="เลือกคอลเลกชัน">
+                        <i data-lucide="layers" class="w-4 h-4"></i>
+                    </button>
+                    <button type="button" class="btn-bookmark-ribbon p-2.5 rounded-2xl bg-black/75 hover:bg-black text-white backdrop-blur-md border border-white/20 shadow-xl transition-all duration-150 active:scale-90 flex items-center justify-center" data-post-id="{{ post.pk }}" data-bookmarked="{% if is_bookmarked %}true{% else %}false{% endif %}" title="บันทึกโพสต์เข้าคอลเลกชัน">
+                        <i data-lucide="bookmark" class="w-5 h-5 {% if is_bookmarked %}text-amber-400 fill-amber-400{% else %}text-white{% endif %} transition-colors"></i>
+                    </button>
+                </div>
+            {% endif %}
+
             {% if post.get_all_image_urls|length > 1 %}
-                <!-- Photo Count Badge Top Right (Clean Text Only) -->
-                <div class="absolute top-4 right-4 z-20 px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[11px] text-white font-mono font-medium shadow-lg pointer-events-none">
+                <!-- Photo Count Badge Top Left -->
+                <div class="absolute top-4 left-4 z-20 px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[11px] text-white font-mono font-medium shadow-lg pointer-events-none">
                     <span class="carousel-counter">1/{{ post.get_all_image_urls|length }}</span>
                 </div>
 
