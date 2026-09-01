@@ -1,0 +1,682 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Admin Dashboard & Moderation Queue - ที่นี่มีอะไร{% endblock %}
+
+{% block main_width %}max-w-7xl{% endblock %}
+
+{% block extra_css %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .glass-panel {
+        background: rgba(18, 18, 22, 0.75);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+
+    .glass-card-accent {
+        background: radial-gradient(120% 120% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, rgba(12, 12, 16, 0.8) 100%);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    .glass-card-accent:hover {
+        border-color: rgba(255, 255, 255, 0.25);
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.8), 0 0 25px -5px rgba(255, 255, 255, 0.08);
+    }
+
+    .neon-border-rose {
+        border-color: rgba(244, 63, 94, 0.4);
+        box-shadow: 0 0 15px rgba(244, 63, 94, 0.15);
+    }
+
+    .neon-border-indigo {
+        border-color: rgba(99, 102, 241, 0.4);
+        box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+    }
+
+    .neon-border-emerald {
+        border-color: rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+    }
+
+    .neon-border-amber {
+        border-color: rgba(245, 158, 11, 0.4);
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
+    }
+
+    /* Modal Backdrop */
+    .modal-backdrop {
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(12px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8 pb-16">
+    
+    <!-- Top Header Banner -->
+    <div class="relative overflow-hidden rounded-3xl glass-panel p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-white/10">
+        <div class="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-emerald-500/20 via-teal-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 space-y-1.5">
+            <div class="flex items-center gap-3">
+                <span class="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                    Admin Operations
+                </span>
+                <span class="text-xs text-zinc-400 font-mono">Control Center 2026</span>
+            </div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+                ศูนย์ควบคุมและจัดการชุมชน <span class="bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-200 to-zinc-400">(Admin Dashboard)</span>
+            </h1>
+            <p class="text-xs md:text-sm text-zinc-400">
+                กำกับดูแลความเรียบร้อย ตรวจสอบรายงานการทำผิดกฎ และสั่งระงับบัญชีผู้ใช้งาน
+            </p>
+        </div>
+
+        <div class="relative z-10 flex items-center gap-3 shrink-0">
+            <a href="{% url 'post_list' %}" class="px-4 py-2.5 rounded-2xl bg-zinc-900 border border-zinc-700 text-xs font-bold text-zinc-300 hover:text-white hover:border-zinc-500 transition active:scale-95 flex items-center gap-2 shadow-lg">
+                <i data-lucide="compass" class="w-4 h-4 text-zinc-400"></i>
+                <span>ไปหน้าฟีด</span>
+            </a>
+            <a href="/admin/" target="_blank" class="px-4 py-2.5 rounded-2xl bg-white text-black text-xs font-bold hover:bg-zinc-200 transition active:scale-95 flex items-center gap-2 shadow-xl shadow-white/10">
+                <i data-lucide="shield-check" class="w-4 h-4 text-black"></i>
+                <span>Django Admin</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 1. STAT CARDS (4 ช่อง สไตล์ Dark Glassmorphism) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        
+        <!-- Card 1: Total Posts -->
+        <div class="glass-card-accent rounded-3xl p-5 md:p-6 relative overflow-hidden neon-border-indigo">
+            <div class="flex items-center justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <i data-lucide="file-text" class="w-6 h-6"></i>
+                </div>
+                <span class="px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] font-bold">
+                    +{{ today_posts }} วันนี้
+                </span>
+            </div>
+            <div class="mt-4 space-y-1">
+                <span class="text-xs font-semibold text-zinc-400">โพสต์ทั้งหมดในระบบ</span>
+                <div class="text-3xl font-extrabold text-white tracking-tight font-mono">{{ total_posts }}</div>
+            </div>
+        </div>
+
+        <!-- Card 2: Total & Banned Users -->
+        <div class="glass-card-accent rounded-3xl p-5 md:p-6 relative overflow-hidden neon-border-emerald">
+            <div class="flex items-center justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
+                {% if banned_users > 0 %}
+                <span class="px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] font-bold">
+                    แบนแล้ว {{ banned_users }} บัญชี
+                </span>
+                {% else %}
+                <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] font-bold">
+                    บัญชีปกติ
+                </span>
+                {% endif %}
+            </div>
+            <div class="mt-4 space-y-1">
+                <span class="text-xs font-semibold text-zinc-400">ผู้ใช้งานทั้งหมด</span>
+                <div class="text-3xl font-extrabold text-white tracking-tight font-mono">{{ total_users }}</div>
+            </div>
+        </div>
+
+        <!-- Card 3: Pending Reports -->
+        <div class="glass-card-accent rounded-3xl p-5 md:p-6 relative overflow-hidden neon-border-rose">
+            <div class="flex items-center justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+                </div>
+                {% if pending_reports > 0 %}
+                <span class="px-2.5 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[11px] font-bold animate-pulse">
+                    คอยดำเนินการ!
+                </span>
+                {% else %}
+                <span class="px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 text-[11px] font-bold">
+                    ไม่มีค้าง
+                </span>
+                {% endif %}
+            </div>
+            <div class="mt-4 space-y-1">
+                <span class="text-xs font-semibold text-zinc-400">รายงานคอยตรวจสอบ</span>
+                <div class="text-3xl font-extrabold text-white tracking-tight font-mono flex items-baseline gap-2">
+                    <span>{{ pending_reports }}</span>
+                    <span class="text-xs font-medium text-zinc-400">/ รวม {{ total_reports }} รายงาน</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Total Comments -->
+        <div class="glass-card-accent rounded-3xl p-5 md:p-6 relative overflow-hidden neon-border-amber">
+            <div class="flex items-center justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <i data-lucide="message-square" class="w-6 h-6"></i>
+                </div>
+                <span class="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-bold">
+                    Community
+                </span>
+            </div>
+            <div class="mt-4 space-y-1">
+                <span class="text-xs font-semibold text-zinc-400">ความคิดเห็นทั้งหมด</span>
+                <div class="text-3xl font-extrabold text-white tracking-tight font-mono">{{ total_comments }}</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 2. CHART.JS ANALYTICS SECTION -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Chart 1: Daily Posts Trend (2 Cols) -->
+        <div class="lg:col-span-2 glass-panel rounded-3xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <i data-lucide="trending-up" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-extrabold text-white">สถิติโพสต์รายวัน (Daily Posts Trend)</h2>
+                        <p class="text-xs text-zinc-400">แนวโน้มการสร้างโพสต์การเดินทางใน 7 วันล่าสุด</p>
+                    </div>
+                </div>
+                <span class="text-xs text-zinc-400 font-mono">7 Days</span>
+            </div>
+            <div class="h-64 w-full relative">
+                <canvas id="dailyPostsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart 2: Top Categories / Tags Distribution (1 Col) -->
+        <div class="glass-panel rounded-3xl p-6 space-y-4">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h2 class="text-base font-extrabold text-white">หมวดหมู่อยอดนิยม</h2>
+                    <p class="text-xs text-zinc-400">สัดส่วนแท็กและประเภทสถานที่เช็คอิน</p>
+                </div>
+            </div>
+            <div class="h-64 w-full relative flex items-center justify-center">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 3. MODERATION QUEUE (ตารางคิวรายงาน) -->
+    <div class="glass-panel rounded-3xl p-6 md:p-8 space-y-6">
+        
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                    <i data-lucide="shield-alert" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-white">คิวจัดการรายงาน (Moderation Queue)</h2>
+                    <p class="text-xs text-zinc-400">รายการโพสต์หรือความคิดเห็นที่ถูกผู้ใช้รายงานเข้ามา</p>
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="flex items-center gap-1.5 p-1 bg-zinc-950/80 rounded-2xl border border-white/10 self-start md:self-auto">
+                <a href="?status=all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'all' %}bg-white text-black shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+                    ทั้งหมด
+                </a>
+                <a href="?status=pending" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {% if status_filter == 'pending' %}bg-rose-500 text-white shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+                    <span>รอตรวจสอบ</span>
+                    {% if pending_reports > 0 %}
+                    <span class="px-1.5 py-0.5 text-[10px] rounded-full bg-black/40 text-white font-mono">{{ pending_reports }}</span>
+                    {% endif %}
+                </a>
+                <a href="?status=resolved" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'resolved' %}bg-emerald-500 text-white shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+                    ดำเนินการแล้ว
+                </a>
+                <a href="?status=dismissed" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'dismissed' %}bg-zinc-800 text-zinc-200 shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+                    ปฏิเสธแล้ว
+                </a>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="overflow-x-auto rounded-2xl border border-white/10">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-zinc-950/90 text-zinc-400 uppercase font-mono tracking-wider border-b border-white/10">
+                    <tr>
+                        <th class="py-3.5 px-4">#ID</th>
+                        <th class="py-3.5 px-4">ผู้รายงาน</th>
+                        <th class="py-3.5 px-4">ประเภท/รายการที่ถูกรายงาน</th>
+                        <th class="py-3.5 px-4">เหตุผลในการรายงาน</th>
+                        <th class="py-3.5 px-4">วันที่ส่ง</th>
+                        <th class="py-3.5 px-4">สถานะ</th>
+                        <th class="py-3.5 px-4 text-right">ดำเนินการ</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5 text-zinc-200">
+                    {% for r in reports %}
+                    <tr class="hover:bg-white/[0.02] transition" id="report-row-{{ r.id }}">
+                        <td class="py-4 px-4 font-mono font-bold text-zinc-400">#{{ r.id }}</td>
+                        
+                        <td class="py-4 px-4">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center justify-center font-bold text-[10px] text-white shrink-0">
+                                    {% if r.reporter.profile.get_avatar_url %}
+                                        <img src="{{ r.reporter.profile.get_avatar_url }}" alt="Avatar" class="w-full h-full object-cover">
+                                    {% else %}
+                                        {{ r.reporter.username|slice:":1"|upper }}
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <span class="font-bold text-white block">@{{ r.reporter.username }}</span>
+                                    <span class="text-[10px] text-zinc-400">{{ r.reporter.profile.get_display_name }}</span>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="py-4 px-4 max-w-xs">
+                            {% if r.post %}
+                                <div class="space-y-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold">
+                                        <i data-lucide="file-text" class="w-3 h-3"></i> โพสต์ #{{ r.post.id }}
+                                    </span>
+                                    <p class="text-zinc-300 line-clamp-1 text-xs">
+                                        {% if r.post.is_hidden %}
+                                            <span class="text-rose-400 font-bold">[ถูกซ่อนแล้ว]</span>
+                                        {% endif %}
+                                        {{ r.post.caption|default:r.post.location_name|default:"ไม่มีข้อความ" }}
+                                    </p>
+                                    <span class="text-[10px] text-zinc-400 block">โดย @{{ r.post.user.username }}</span>
+                                </div>
+                            {% elif r.comment %}
+                                <div class="space-y-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold">
+                                        <i data-lucide="message-square" class="w-3 h-3"></i> คอมเมนต์ #{{ r.comment.id }}
+                                    </span>
+                                    <p class="text-zinc-300 line-clamp-1 text-xs">
+                                        {% if r.comment.is_hidden %}
+                                            <span class="text-rose-400 font-bold">[ถูกซ่อนแล้ว]</span>
+                                        {% endif %}
+                                        {{ r.comment.content }}
+                                    </p>
+                                    <span class="text-[10px] text-zinc-400 block">โดย @{{ r.comment.user.username }}</span>
+                                </div>
+                            {% else %}
+                                <span class="text-zinc-400 italic">[รายการถูกลบออกจากระบบแล้ว]</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="py-4 px-4">
+                            <div class="space-y-1">
+                                <span class="font-bold text-rose-300 block">{{ r.get_reason_display }}</span>
+                                {% if r.details %}
+                                <p class="text-[11px] text-zinc-400 line-clamp-1 italic">"{{ r.details }}"</p>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <td class="py-4 px-4 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
+                            {{ r.created_at|date:"d M Y H:i" }}
+                        </td>
+
+                        <td class="py-4 px-4 whitespace-nowrap" id="report-status-badge-{{ r.id }}">
+                            {% if r.status == 'pending' %}
+                                <span class="px-2.5 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-bold flex items-center gap-1 w-max animate-pulse">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> รอการตรวจสอบ
+                                </span>
+                            {% elif r.status == 'resolved' %}
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center gap-1 w-max">
+                                    <i data-lucide="check" class="w-3 h-3 text-emerald-400"></i> ดำเนินการแล้ว
+                                </span>
+                            {% else %}
+                                <span class="px-2.5 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-400 text-[10px] font-bold flex items-center gap-1 w-max">
+                                    <i data-lucide="x" class="w-3 h-3 text-zinc-400"></i> ปฏิเสธแล้ว
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="py-4 px-4 text-right whitespace-nowrap">
+                            <div class="flex items-center justify-end gap-1.5">
+                                <!-- 1. View Content Modal Button -->
+                                <button type="button" 
+                                        onclick="openReportDetailModal({{ r.id }}, '{{ r.reporter.username|escapejs }}', '{{ r.get_reason_display|escapejs }}', '{{ r.details|default:""|escapejs }}', '{% if r.post %}{{ r.post.caption|default:r.post.location_name|escapejs }}{% elif r.comment %}{{ r.comment.content|escapejs }}{% else %}เนื้อหาถูกลบแล้ว{% endif %}', '{% if r.post %}@{{ r.post.user.username|escapejs }}{% elif r.comment %}@{{ r.comment.user.username|escapejs }}{% endif %}', '{% if r.post %}{{ r.post.get_image_url|escapejs }}{% endif %}')"
+                                        class="px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 transition text-[11px] font-bold flex items-center gap-1">
+                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                                    <span>ดูเนื้อหา</span>
+                                </button>
+
+                                {% if r.status == 'pending' %}
+                                <!-- 2. Hide Content Action Button -->
+                                <form method="POST" action="{% url 'admin_resolve_report' report_id=r.id %}" class="inline" onsubmit="return confirm('คุณต้องการซ่อนเนื้อหานี้และปิดรายงานใช่หรือไม่?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="hide">
+                                    <button type="submit" class="px-2.5 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 hover:bg-rose-500 hover:text-white transition text-[11px] font-bold flex items-center gap-1">
+                                        <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
+                                        <span>ซ่อนเนื้อหา</span>
+                                    </button>
+                                </form>
+
+                                <!-- 3. Dismiss Report Action Button -->
+                                <form method="POST" action="{% url 'admin_resolve_report' report_id=r.id %}" class="inline" onsubmit="return confirm('ปฏิเสธรายงานนี้ใช่หรือไม่?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="dismiss">
+                                    <button type="submit" class="px-2.5 py-1.5 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:text-white transition text-[11px] font-bold flex items-center gap-1">
+                                        <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+                                        <span>ปฏิเสธ</span>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-zinc-500 italic">
+                            <i data-lucide="check-circle" class="w-8 h-8 mx-auto mb-2 text-zinc-600"></i>
+                            ไม่พบรายการรายงานตามเงื่อนไขที่เลือก
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- 4. USER SEARCH & BAN QUEUE (ระบบค้นหาผู้ใช้เพื่อสั่งระงับ/แบนบัญชี) -->
+    <div class="glass-panel rounded-3xl p-6 md:p-8 space-y-6">
+        
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                    <i data-lucide="user-x" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-extrabold text-white">ค้นหาผู้ใช้และจัดการสิทธิ์ (Ban Queue)</h2>
+                    <p class="text-xs text-zinc-400">ค้นหาบัญชีผู้ใช้เพื่อตรวจสอบ สั่งระงับสิทธิ์ (Ban) หรือ ปลดระงับบัญชี</p>
+                </div>
+            </div>
+
+            <!-- Search Form -->
+            <form method="GET" action="{% url 'admin_dashboard' %}" class="flex items-center gap-2 w-full md:w-80">
+                <div class="relative w-full">
+                    <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" 
+                           name="user_q" 
+                           value="{{ user_q }}" 
+                           placeholder="ค้นหาชื่อผู้ใช้, อีเมล หรือ Display Name..."
+                           class="w-full bg-zinc-950/90 border border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition">
+                </div>
+                <button type="submit" class="px-4 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shrink-0 shadow-lg">
+                    ค้นหา
+                </button>
+            </form>
+        </div>
+
+        <!-- Users Grid / Table -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for u in users_list %}
+            <div class="glass-card-accent rounded-2xl p-4 flex items-center justify-between gap-4 border border-white/10 hover:border-white/20 transition" id="user-card-{{ u.id }}">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-11 h-11 rounded-2xl bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center justify-center font-bold text-sm text-white shrink-0 shadow-md">
+                        {% if u.profile.get_avatar_url %}
+                            <img src="{{ u.profile.get_avatar_url }}" alt="Avatar" class="w-full h-full object-cover">
+                        {% else %}
+                            {{ u.profile.get_initial|default:u.username|slice:":1"|upper }}
+                        {% endif %}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-bold text-sm text-white truncate">@{{ u.username }}</span>
+                            {% if u.is_staff %}
+                                <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-bold">STAFF</span>
+                            {% endif %}
+                        </div>
+                        <span class="text-xs text-zinc-400 truncate block">{{ u.profile.get_display_name }}</span>
+                        <span class="text-[10px] text-zinc-500 font-mono block">สมัครเมื่อ {{ u.date_joined|date:"d/m/Y" }}</span>
+                    </div>
+                </div>
+
+                <div class="shrink-0 flex flex-col items-end gap-2">
+                    <!-- Ban Status Badge -->
+                    <span id="user-ban-badge-{{ u.id }}" class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono border
+                        {% if u.profile.is_banned %} bg-rose-500/20 border-rose-500/40 text-rose-300
+                        {% else %} bg-emerald-500/20 border-emerald-500/40 text-emerald-300 {% endif %}">
+                        {% if u.profile.is_banned %}BANNED{% else %}ACTIVE{% endif %}
+                    </span>
+
+                    <!-- Ban / Unban Form Button -->
+                    {% if u != user %}
+                    <form method="POST" action="{% url 'admin_toggle_ban_user' user_id=u.id %}" onsubmit="return confirm('ยืนยันเปลี่ยนสถานะระงับบัญชีของ @{{ u.username }} ?');">
+                        {% csrf_token %}
+                        <button type="submit" id="user-ban-btn-{{ u.id }}" class="px-3 py-1.5 rounded-xl font-bold text-xs transition active:scale-95 flex items-center gap-1.5 shadow-md
+                            {% if u.profile.is_banned %} bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500 hover:text-white
+                            {% else %} bg-rose-500/20 border border-rose-500/40 text-rose-300 hover:bg-rose-500 hover:text-white {% endif %}">
+                            <i data-lucide="{% if u.profile.is_banned %}user-check{% else %}user-x{% endif %}" class="w-3.5 h-3.5"></i>
+                            <span>{% if u.profile.is_banned %}ปลดระงับ{% else %}สั่งระงับแบน{% endif %}</span>
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="text-[10px] text-zinc-500 italic">บัญชีของคุณ</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full py-8 text-center text-zinc-500 italic">
+                ไม่พบผู้ใช้งานตามคำค้นหา "{{ user_q }}"
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+</div>
+
+<!-- VIEW REPORT CONTENT MODAL -->
+<div id="report-detail-modal" class="fixed inset-0 z-50 modal-backdrop hidden items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-lg rounded-3xl p-6 space-y-5 border border-white/20 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+        
+        <div class="flex items-center justify-between border-b border-white/10 pb-4">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-lg font-extrabold text-white">รายละเอียดเนื้อหาที่ถูกรายงาน</h3>
+            </div>
+            <button type="button" onclick="closeReportDetailModal()" class="w-8 h-8 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+            
+            <!-- Image if post -->
+            <div id="modal-post-img-container" class="hidden rounded-2xl overflow-hidden max-h-48 border border-white/10 bg-black">
+                <img id="modal-post-img" src="" alt="Reported Post Image" class="w-full h-full object-cover">
+            </div>
+
+            <!-- Author & Reporter Info -->
+            <div class="grid grid-cols-2 gap-3 p-3 bg-zinc-950/80 rounded-2xl border border-white/5">
+                <div>
+                    <span class="text-zinc-500 text-[10px] block">เจ้าของเนื้อหา:</span>
+                    <span id="modal-author-name" class="font-bold text-white block">@user</span>
+                </div>
+                <div>
+                    <span class="text-zinc-500 text-[10px] block">ผู้รายงาน:</span>
+                    <span id="modal-reporter-name" class="font-bold text-rose-300 block">@reporter</span>
+                </div>
+            </div>
+
+            <!-- Reason & Details -->
+            <div class="space-y-1">
+                <span class="text-zinc-400 font-bold block">เหตุผลการรายงาน:</span>
+                <span id="modal-reason" class="text-rose-400 font-bold block text-sm">สแปม</span>
+                <p id="modal-details" class="text-zinc-300 italic bg-zinc-950/60 p-2.5 rounded-xl border border-white/5">"รายละเอียดเพิ่มเติม"</p>
+            </div>
+
+            <!-- Content Snippet -->
+            <div class="space-y-1">
+                <span class="text-zinc-400 font-bold block">ข้อความเนื้อหา:</span>
+                <div id="modal-content-text" class="p-3 bg-zinc-900 rounded-2xl border border-zinc-800 text-zinc-200 leading-relaxed font-sans max-h-36 overflow-y-auto">
+                    ...
+                </div>
+            </div>
+
+        </div>
+
+        <div class="pt-2 flex justify-end">
+            <button type="button" onclick="closeReportDetailModal()" class="px-5 py-2.5 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition">
+                ปิดหน้าต่าง
+            </button>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 1. Chart.js Initialization
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        // Data passed from Django view context
+        const dailyLabels = {{ daily_posts_labels_json|safe }};
+        const dailyData = {{ daily_posts_data_json|safe }};
+        const categoryLabels = {{ category_labels_json|safe }};
+        const categoryData = {{ category_data_json|safe }};
+
+        // Chart 1: Daily Posts Line Chart
+        const ctxDaily = document.getElementById('dailyPostsChart').getContext('2d');
+        const gradientDaily = ctxDaily.createLinearGradient(0, 0, 0, 250);
+        gradientDaily.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+        gradientDaily.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+        new Chart(ctxDaily, {
+            type: 'line',
+            data: {
+                labels: dailyLabels,
+                datasets: [{
+                    label: 'จำนวนโพสต์',
+                    data: dailyData,
+                    borderColor: '#818cf8',
+                    borderWidth: 3,
+                    backgroundColor: gradientDaily,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#6366f1',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#18181b',
+                        titleColor: '#ffffff',
+                        bodyColor: '#a1a1aa',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#71717a', font: { family: 'Prompt' } }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#71717a', precision: 0, font: { family: 'Prompt' } }
+                    }
+                }
+            }
+        });
+
+        // Chart 2: Top Categories Doughnut Chart
+        const ctxCat = document.getElementById('categoryChart').getContext('2d');
+        new Chart(ctxCat, {
+            type: 'doughnut',
+            data: {
+                labels: categoryLabels,
+                datasets: [{
+                    data: categoryData,
+                    backgroundColor: [
+                        '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#09090b'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#d4d4d8',
+                            font: { family: 'Prompt', size: 11 },
+                            padding: 12,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#18181b',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        titleColor: '#ffffff',
+                        bodyColor: '#a1a1aa'
+                    }
+                },
+                cutout: '68%'
+            }
+        });
+
+    });
+
+    // 2. Report Detail Modal Functions
+    function openReportDetailModal(id, reporter, reason, details, contentText, author, imgUrl) {
+        document.getElementById('modal-reporter-name').innerText = '@' + reporter;
+        document.getElementById('modal-author-name').innerText = author || 'ไม่ทราบชื่อ';
+        document.getElementById('modal-reason').innerText = reason;
+        document.getElementById('modal-details').innerText = details ? '"' + details + '"' : 'ไม่มีรายละเอียดเพิ่มเติม';
+        document.getElementById('modal-content-text').innerText = contentText || 'ไม่มีข้อความ';
+
+        const imgContainer = document.getElementById('modal-post-img-container');
+        const img = document.getElementById('modal-post-img');
+        if (imgUrl && imgUrl.trim() !== '') {
+            img.src = imgUrl;
+            imgContainer.classList.remove('hidden');
+        } else {
+            imgContainer.classList.add('hidden');
+        }
+
+        document.getElementById('report-detail-modal').classList.remove('hidden');
+        document.getElementById('report-detail-modal').classList.add('flex');
+    }
+
+    function closeReportDetailModal() {
+        document.getElementById('report-detail-modal').classList.add('hidden');
+        document.getElementById('report-detail-modal').classList.remove('flex');
+    }
+</script>
+{% endblock %}

@@ -70,6 +70,7 @@ class Post(models.Model):
     )
     
     views_count = models.PositiveIntegerField(default=0, verbose_name="จำนวนการเข้าชม")
+    is_hidden = models.BooleanField(default=False, verbose_name="ซ่อนโพสต์")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="แก้ไขล่าสุด")
 
@@ -255,6 +256,7 @@ class Comment(models.Model):
         blank=True,
         verbose_name="ผู้กดถูกใจคอมเมนต์"
     )
+    is_hidden = models.BooleanField(default=False, verbose_name="ซ่อนความคิดเห็น")
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="เวลาแสดงความคิดเห็น"
@@ -310,6 +312,11 @@ class Profile(models.Model):
         max_length=50,
         default="from-emerald-500 to-teal-400",
         verbose_name="ธีมสีอวาตาร์"
+    )
+    is_banned = models.BooleanField(
+        default=False,
+        verbose_name="ถูกระงับ/แบนบัญชี",
+        help_text="หากเปิดใช้งาน ผู้ใช้จะไม่สามารถเข้าสู่ระบบหรือใช้งานระบบได้"
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="แก้ไขล่าสุด")
@@ -509,3 +516,81 @@ def create_or_save_user_profile(sender, instance, created, **kwargs):
     else:
         if not hasattr(instance, 'profile'):
             Profile.objects.create(user=instance, display_name=instance.first_name or instance.username)
+
+
+class Report(models.Model):
+    """
+    Model สำหรับเก็บข้อมูลการรายงานเนื้อหา/ผู้ใช้งาน (Post or Comment Report)
+    """
+    REASON_CHOICES = [
+        ('spam', 'ขยะ / สแปม (Spam)'),
+        ('inappropriate', 'เนื้อหาไม่เหมาะสม / ลามกอนาจาร'),
+        ('harassment', 'การคุกคาม / ความเกลียดชัง'),
+        ('fake_news', 'ข้อมูลเท็จ / หลอกลวง'),
+        ('rules_violation', 'ละเมิดกฎชุมชน'),
+        ('other', 'อื่นๆ'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'รอการตรวจสอบ'),
+        ('resolved', 'ดำเนินการเรียบร้อย (ซ่อน/ลบ)'),
+        ('dismissed', 'ปฏิเสธรายงาน'),
+    ]
+
+    reporter = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='reports_submitted',
+        verbose_name="ผู้รายงาน"
+    )
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports',
+        verbose_name="โพสต์ที่ถูกรายงาน"
+    )
+    comment = models.ForeignKey(
+        Comment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports',
+        verbose_name="ความคิดเห็นที่ถูกรายงาน"
+    )
+    reason = models.CharField(
+        max_length=50,
+        choices=REASON_CHOICES,
+        default='other',
+        verbose_name="เหตุผลในการรายงาน"
+    )
+    details = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="รายละเอียดเพิ่มเติม"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="สถานะรายงาน"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="เวลาที่รายงาน"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="เวลาที่อัปเดต"
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "การรายงาน"
+        verbose_name_plural = "การรายงานทั้งหมด"
+
+    def __str__(self):
+        item_str = f"โพสต์ #{self.post_id}" if self.post else (f"ความคิดเห็น #{self.comment_id}" if self.comment else "รายการ")
+        return f"รายงาน {item_str} โดย @{self.reporter.username} [{self.get_status_display()}]"
+

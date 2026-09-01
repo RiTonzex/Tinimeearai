@@ -12,7 +12,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.db.models import Q, F
 from django.http import JsonResponse, HttpResponseForbidden
-from .models import Post, PostImage, Comment, Follow, Notification, Profile
+from .models import Post, PostImage, Comment, Follow, Notification, Profile, Report
 from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm
 
 @login_required(login_url='login')
@@ -38,7 +38,7 @@ def post_list(request):
     if feed_tab not in ('smart', 'following', 'explore'):
         feed_tab = 'smart'
 
-    posts_qs = Post.objects.select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').all()
+    posts_qs = Post.objects.filter(is_hidden=False, user__profile__is_banned=False).select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images')
 
     if query:
         posts_qs = posts_qs.filter(
@@ -387,11 +387,17 @@ def settings_profile_view(request):
     if request.method == 'POST':
         form = ProfileUpdateForm(request.POST, request.FILES)
         if form.is_valid():
-            if 'avatar' in request.FILES and request.FILES['avatar']:
-                profile.avatar = request.FILES['avatar']
             profile.display_name = form.cleaned_data.get('display_name')
             profile.bio = form.cleaned_data.get('bio')
-            profile.save()
+            if 'avatar' in request.FILES and request.FILES['avatar']:
+                cloud_key = getattr(settings, 'CLOUDINARY_API_KEY', None) or os.environ.get('CLOUDINARY_API_KEY')
+                if cloud_key and cloud_key not in ('your_api_key', 'dummy_api_key'):
+                    try:
+                        profile.avatar = request.FILES['avatar']
+                        profile.save()
+                    except Exception:
+                        pass
+            profile.save(update_fields=['display_name', 'bio', 'updated_at'])
 
             request.user.first_name = form.cleaned_data.get('first_name')
             request.user.last_name = form.cleaned_data.get('last_name')
@@ -611,26 +617,38 @@ def register_view(request):
 
 def login_view(request):
     """
-    หน้าเข้าสู่ระบบ
+    หน้าเข้าสู่ระบบ (รองรับทั้งการกรอก Username หรือ Email)
     """
     if request.user.is_authenticated:
         return redirect('post_list')
         
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-                messages.success(request, f'ยินดีต้อนรับกลับ, {username}!')
-                next_url = request.POST.get('next') or request.GET.get('next') or 'post_list'
-                return redirect(next_url)
-        messages.error(request, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')
+        login_input = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+
+        # รองรับการเข้าสู่ระบบด้วย อีเมล (ถ้ามีเครื่องหมาย @ หรือตรงกับอีเมลในระบบ)
+        if '@' in login_input:
+            user_by_email = User.objects.filter(email__iexact=login_input).first()
+            if user_by_email:
+                login_input = user_by_email.username
+
+        user = authenticate(username=login_input, password=password)
+        if user is not None:
+            if hasattr(user, 'profile') and user.profile.is_banned:
+                messages.error(request, 'บัญชีของคุณถูกระงับการใช้งานเนื่องจากละเมิดกฎชุมชน กรุณาติดต่อผู้ดูแลระบบ')
+                return redirect('login')
+            login(request, user)
+            display_name = user.profile.get_display_name() if hasattr(user, 'profile') else user.username
+            messages.success(request, f'ยินดีต้อนรับกลับ, {display_name}!')
+            next_url = request.POST.get('next') or request.GET.get('next') or 'post_list'
+            return redirect(next_url)
+        else:
+            messages.error(request, 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง')
     else:
         form = AuthenticationForm()
+
     return render(request, 'checkin/login.html', {'form': form, 'next': request.GET.get('next', '')})
+
 
 def logout_view(request):
     """
@@ -863,6 +881,10 @@ def google_callback(request):
                 profile.avatar = picture
             profile.save()
 
+        if hasattr(user, 'profile') and user.profile.is_banned:
+            messages.error(request, 'บัญชีของคุณถูกระงับการใช้งานเนื่องจากละเมิดกฎชุมชน กรุณาติดต่อผู้ดูแลระบบ')
+            return redirect('login')
+
         login(request, user)
         messages.success(request, f'เข้าสู่ระบบด้วย Google สำเร็จ! ยินดีต้อนรับคุณ {user.profile.get_display_name()} 🌟')
         return redirect('post_list')
@@ -870,4 +892,222 @@ def google_callback(request):
     except Exception as e:
         messages.error(request, f'เกิดข้อผิดพลาดในการเชื่อมต่อกับ Google: {e}')
         return redirect('login')
+
+
+@login_required(login_url='login')
+def admin_dashboard(request):
+    """
+    หน้า Admin Dashboard สไตล์ Dark Glassmorphism
+    รวม Stat Cards 4 ช่อง, กราฟ Chart.js (โพสต์รายวัน และ หมวดหมู่อยอดนิยม),
+    Moderation Queue ตารางจัดการรายงาน และ ปุ่มค้นหาผู้ใช้เพื่อสั่งระงับ/แบนบัญชี
+    """
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบ')
+        return redirect('post_list')
+
+    # Stat Cards
+    total_posts = Post.objects.count()
+    today_posts = Post.objects.filter(created_at__date=timezone.now().date()).count()
+    total_users = User.objects.count()
+    banned_users = Profile.objects.filter(is_banned=True).count()
+    pending_reports = Report.objects.filter(status='pending').count()
+    total_reports = Report.objects.count()
+    total_comments = Comment.objects.count()
+
+    # Chart 1: Daily Posts (Last 7 Days)
+    today = timezone.now().date()
+    daily_posts_labels = []
+    daily_posts_data = []
+    for i in range(6, -1, -1):
+        day = today - timezone.timedelta(days=i)
+        count = Post.objects.filter(created_at__date=day).count()
+        daily_posts_labels.append(day.strftime('%d/%m'))
+        daily_posts_data.append(count)
+
+    # Chart 2: Top Categories / Tags
+    tag_counts = {}
+    for p in Post.objects.exclude(tags__isnull=True).exclude(tags=''):
+        if p.tags:
+            split_tags = [t.strip('# ').strip() for t in p.tags.replace(',', ' ').split() if t.strip()]
+            for tag in split_tags:
+                if tag:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:6]
+    if sorted_tags:
+        category_labels = [t[0] for t in sorted_tags]
+        category_data = [t[1] for t in sorted_tags]
+    else:
+        category_labels = ['คาเฟ่', 'ทะเล', 'ภูเขา', 'จุดชมวิว', 'ที่เที่ยวลับ']
+        category_data = [5, 4, 3, 2, 1]
+
+    # Moderation Queue (Reports)
+    status_filter = request.GET.get('status', 'all')
+    reports_qs = Report.objects.select_related(
+        'reporter', 'reporter__profile',
+        'post', 'post__user', 'post__user__profile',
+        'comment', 'comment__user', 'comment__user__profile'
+    )
+    if status_filter in ('pending', 'resolved', 'dismissed'):
+        reports = reports_qs.filter(status=status_filter)
+    else:
+        reports = reports_qs.all()
+
+    # User Search & Ban Queue
+    user_q = request.GET.get('user_q', '').strip()
+    if user_q:
+        users_list = User.objects.select_related('profile').filter(
+            Q(username__icontains=user_q) |
+            Q(email__icontains=user_q) |
+            Q(profile__display_name__icontains=user_q)
+        ).order_by('-date_joined')[:20]
+    else:
+        users_list = User.objects.select_related('profile').order_by('-date_joined')[:10]
+
+    context = {
+        'total_posts': total_posts,
+        'today_posts': today_posts,
+        'total_users': total_users,
+        'banned_users': banned_users,
+        'pending_reports': pending_reports,
+        'total_reports': total_reports,
+        'total_comments': total_comments,
+        'daily_posts_labels_json': daily_posts_labels,
+        'daily_posts_data_json': daily_posts_data,
+        'category_labels_json': category_labels,
+        'category_data_json': category_data,
+        'reports': reports,
+        'status_filter': status_filter,
+        'users_list': users_list,
+        'user_q': user_q,
+    }
+    return render(request, 'checkin/admin_dashboard.html', context)
+
+
+@login_required(login_url='login')
+@require_POST
+def report_item(request):
+    """
+    API/Form Action ให้ผู้ใช้งานทั่วไปกดส่งรายงานเนื้อหา (Post หรือ Comment)
+    """
+    item_type = request.POST.get('item_type')
+    item_id = request.POST.get('item_id')
+    reason = request.POST.get('reason', 'other')
+    details = request.POST.get('details', '').strip()
+
+    if not item_id or item_type not in ('post', 'comment'):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'json' in request.content_type:
+            return JsonResponse({'success': False, 'message': 'ข้อมูลการรายงานไม่ถูกต้อง'}, status=400)
+        messages.error(request, 'ข้อมูลการรายงานไม่ถูกต้อง')
+        return redirect('post_list')
+
+    post_obj = None
+    comment_obj = None
+    if item_type == 'post':
+        post_obj = get_object_or_404(Post, pk=item_id)
+        if Report.objects.filter(reporter=request.user, post=post_obj, status='pending').exists():
+            msg = 'คุณได้ส่งรายงานโพสต์นี้ไปแล้ว อยู่ระหว่างการตรวจสอบ'
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': msg})
+            messages.info(request, msg)
+            return redirect('post_detail', pk=item_id)
+    else:
+        comment_obj = get_object_or_404(Comment, pk=item_id)
+        if Report.objects.filter(reporter=request.user, comment=comment_obj, status='pending').exists():
+            msg = 'คุณได้ส่งรายงานความคิดเห็นนี้ไปแล้ว อยู่ระหว่างการตรวจสอบ'
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': msg})
+            messages.info(request, msg)
+            return redirect('post_detail', pk=comment_obj.post_id)
+
+    Report.objects.create(
+        reporter=request.user,
+        post=post_obj,
+        comment=comment_obj,
+        reason=reason,
+        details=details,
+        status='pending'
+    )
+
+    success_msg = 'ส่งรายงานเรียบร้อยแล้ว ทีมงานจะทำการตรวจสอบโดยเร็วที่สุด'
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': success_msg})
+
+    messages.success(request, success_msg)
+    if post_obj:
+        return redirect('post_detail', pk=post_obj.pk)
+    elif comment_obj:
+        return redirect('post_detail', pk=comment_obj.post_id)
+    return redirect('post_list')
+
+
+@login_required(login_url='login')
+@require_POST
+def admin_resolve_report(request, report_id):
+    """
+    Action สำหรับแอดมิน: ดำเนินการกับรายงาน (hide/delete/dismiss)
+    """
+    if not request.user.is_staff and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์เข้าถึง'}, status=403)
+
+    report = get_object_or_404(Report, pk=report_id)
+    action = request.POST.get('action')
+
+    if action == 'hide':
+        if report.post:
+            report.post.is_hidden = True
+            report.post.save()
+        if report.comment:
+            report.comment.is_hidden = True
+            report.comment.save()
+        report.status = 'resolved'
+        msg = f'ซ่อนเนื้อหาของรายงาน #{report.id} เรียบร้อยแล้ว'
+    elif action == 'delete':
+        if report.post:
+            report.post.delete()
+        elif report.comment:
+            report.comment.delete()
+        report.status = 'resolved'
+        msg = f'ลบเนื้อหาของรายงาน #{report.id} เรียบร้อยแล้ว'
+    elif action == 'dismiss':
+        report.status = 'dismissed'
+        msg = f'ปฏิเสธรายงาน #{report.id} เรียบร้อยแล้ว'
+    else:
+        return JsonResponse({'success': False, 'message': 'คำสั่งไม่ถูกต้อง'}, status=400)
+
+    report.save()
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': msg, 'status': report.status, 'status_display': report.get_status_display()})
+
+    messages.success(request, msg)
+    return redirect('admin_dashboard')
+
+
+@login_required(login_url='login')
+@require_POST
+def admin_toggle_ban_user(request, user_id):
+    """
+    Action สำหรับแอดมิน: สั่งระงับบัญชี/ปลดระงับผู้ใช้งาน (Ban/Unban User)
+    """
+    if not request.user.is_staff and not request.user.is_superuser:
+        return JsonResponse({'success': False, 'message': 'ไม่มีสิทธิ์เข้าถึง'}, status=403)
+
+    target_user = get_object_or_404(User, pk=user_id)
+    if target_user == request.user:
+        return JsonResponse({'success': False, 'message': 'คุณไม่สามารถสั่งระงับบัญชีของตนเองได้'}, status=400)
+
+    profile = target_user.profile
+    profile.is_banned = not profile.is_banned
+    profile.save()
+
+    status_str = "ถูกระงับบัญชี (Banned)" if profile.is_banned else "ปกติตามเดิม (Active)"
+    msg = f"อัปเดตสถานะบัญชี @{target_user.username} เป็น {status_str} เรียบร้อยแล้ว"
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'is_banned': profile.is_banned, 'message': msg})
+
+    messages.success(request, msg)
+    return redirect('admin_dashboard')
+
 

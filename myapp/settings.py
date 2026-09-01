@@ -4,6 +4,7 @@ Optimized for Vercel Serverless Deployment & Mobile Excellence
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
@@ -106,7 +107,14 @@ WSGI_APPLICATION = 'myapp.wsgi.application'
 DATABASE_URL = os.environ.get('DATABASE_URL')
 is_vercel = os.environ.get('VERCEL') == '1'
 
-if DATABASE_URL:
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+elif DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
