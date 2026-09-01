@@ -92,27 +92,22 @@ function initCarousels() {
         // Touch swipe gestures
         let startX = 0;
         let startY = 0;
-        let isTouching = false;
 
         container.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
-            isTouching = true;
         }, { passive: true });
 
         container.addEventListener('touchend', (e) => {
-            if (!isTouching) return;
-            isTouching = false;
-            const endX = e.changedTouches[0].clientX;
-            const endY = e.changedTouches[0].clientY;
-            const deltaX = endX - startX;
-            const deltaY = endY - startY;
+            if (e.changedTouches.length !== 1) return;
+            const diffX = e.changedTouches[0].clientX - startX;
+            const diffY = e.changedTouches[0].clientY - startY;
 
-            if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY)) {
-                if (deltaX < 0 && currentIndex < total - 1) {
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+                if (diffX < 0 && currentIndex < total - 1) {
                     updateCarousel(currentIndex + 1);
-                } else if (deltaX > 0 && currentIndex > 0) {
+                } else if (diffX > 0 && currentIndex > 0) {
                     updateCarousel(currentIndex - 1);
                 }
             }
@@ -120,201 +115,43 @@ function initCarousels() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize Carousels
-    initCarousels();
-
-    // 2. Auto-dismiss Toast Notification Pill at bottom
-    const toastContainer = document.getElementById('system-toast-container');
-    if (toastContainer) {
-        setTimeout(() => {
-            toastContainer.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
-            toastContainer.style.opacity = '0';
-            toastContainer.style.transform = 'translate(-50%, 12px)';
-            setTimeout(() => {
-                if (toastContainer && toastContainer.parentNode) {
-                    toastContainer.remove();
-                }
-            }, 350);
-        }, 2400);
-    }
-
-    // 3. Initialize Lucide icons if available
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-        window.lucide.createIcons();
-    }
-
-    // 4. Universal Optimistic Post Like Handler
-    document.addEventListener('click', async (e) => {
-        const likeBtn = e.target.closest('.btn-like-post');
-        if (!likeBtn) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        const url = likeBtn.dataset.url;
-        if (!url) return;
-
-        const heartIcon = likeBtn.querySelector('svg') || likeBtn.querySelector('i');
-        const countSpan = likeBtn.querySelector('.post-likes-count');
-
-        const isCurrentlyLiked = heartIcon ? (heartIcon.classList.contains('fill-rose-500') || heartIcon.classList.contains('text-rose-500')) : false;
-        let currentCount = countSpan ? (parseInt(countSpan.textContent.replace(/[^0-9]/g, '')) || 0) : 0;
-
-        if (isCurrentlyLiked) {
-            if (heartIcon) {
-                heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
-                heartIcon.classList.add('text-zinc-400');
-            }
-            if (countSpan) {
-                currentCount = Math.max(0, currentCount - 1);
-                countSpan.textContent = currentCount;
-            }
-        } else {
-            if (heartIcon) {
-                heartIcon.classList.add('text-rose-500', 'fill-rose-500');
-                heartIcon.classList.remove('text-zinc-400');
-                heartIcon.style.transform = 'scale(1.35)';
-                setTimeout(() => { heartIcon.style.transform = 'scale(1)'; }, 180);
-            }
-            if (countSpan) {
-                currentCount = currentCount + 1;
-                countSpan.textContent = currentCount;
-            }
-        }
-
-        const csrfToken = getCsrfToken();
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (countSpan && typeof data.total_likes !== 'undefined') {
-                    countSpan.textContent = data.total_likes;
-                }
-                if (heartIcon && typeof data.liked !== 'undefined') {
-                    if (data.liked) {
-                        heartIcon.classList.add('text-rose-500', 'fill-rose-500');
-                        heartIcon.classList.remove('text-zinc-400');
-                    } else {
-                        heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
-                        heartIcon.classList.add('text-zinc-400');
-                    }
-                }
-            } else {
-                console.error('Like request failed with status:', res.status);
-            }
-        } catch (err) {
-            console.error('Like sync error:', err);
-        }
-    });
-
-    // 5. Smooth Page Navigation Loading Indicator
-    let loadingBar = document.getElementById('top-loading-bar');
-    if (!loadingBar) {
-        loadingBar = document.createElement('div');
-        loadingBar.id = 'top-loading-bar';
-        document.body.appendChild(loadingBar);
-    }
-
-    const mainContent = document.getElementById('app-main-content');
-
-    document.querySelectorAll('a[href]').forEach(link => {
-        const href = link.getAttribute('href');
-        if (
-            href &&
-            !href.startsWith('#') &&
-            !href.startsWith('javascript:') &&
-            !href.startsWith('tel:') &&
-            !href.startsWith('mailto:') &&
-            !link.target &&
-            !link.hasAttribute('download')
-        ) {
-            link.addEventListener('click', (e) => {
-                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                
-                const currentUrl = window.location.pathname + window.location.search;
-                if (href === currentUrl) return;
-
-                loadingBar.style.width = '35%';
-                loadingBar.style.opacity = '1';
-                setTimeout(() => {
-                    if (loadingBar.style.opacity !== '0') {
-                        loadingBar.style.width = '75%';
-                    }
-                }, 100);
-
-                if (mainContent) {
-                    mainContent.classList.remove('page-transition-enter', 'swipe-exit-left', 'swipe-exit-right');
-                    mainContent.classList.add('page-transition-exit');
-                }
-            });
-        }
-    });
-
-    // 6. Pull-to-Refresh Gesture for Mobile
-    initPullToRefresh();
-
-    window.addEventListener('pageshow', () => {
-        if (mainContent) {
-            mainContent.classList.remove('page-transition-exit', 'swipe-exit-left', 'swipe-exit-right');
-            mainContent.classList.add('page-transition-enter');
-        }
-        if (loadingBar) {
-            loadingBar.style.width = '100%';
-            setTimeout(() => {
-                loadingBar.style.opacity = '0';
-                setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
-            }, 150);
-        }
-        initCarousels();
-    });
-});
-
-/**
- * Modern 60fps Pull-to-Refresh Gesture
- */
 function initPullToRefresh() {
     let startY = 0;
     let currentY = 0;
     let isPulling = false;
     let isRefreshing = false;
-    const threshold = 65;
-
+    const threshold = 70;
+    
     let ptr = document.getElementById('pull-to-refresh-indicator');
     if (!ptr) {
         ptr = document.createElement('div');
         ptr.id = 'pull-to-refresh-indicator';
-        ptr.className = 'fixed top-3 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-zinc-900/95 border border-zinc-700/80 text-white shadow-2xl backdrop-blur-xl pointer-events-none transition-all duration-200 opacity-0 -translate-y-12';
+        ptr.className = 'fixed top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-200';
         ptr.innerHTML = `
-            <svg id="ptr-icon" class="w-5 h-5 text-white transition-transform duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
-                <path d="M21 3v5h-5"/>
-            </svg>
+            <div class="px-3.5 py-2 rounded-full bg-zinc-900/90 border border-zinc-700/80 backdrop-blur-md text-white text-xs font-semibold shadow-2xl flex items-center gap-2">
+                <i data-lucide="rotate-cw" class="w-3.5 h-3.5 text-zinc-300"></i>
+                <span class="ptr-text">ดึงเพื่อรีเฟรช</span>
+            </div>
         `;
         document.body.appendChild(ptr);
+        if (window.lucide) lucide.createIcons();
     }
 
-    const icon = ptr.querySelector('#ptr-icon');
+    const icon = ptr.querySelector('i[data-lucide="rotate-cw"]');
 
     window.addEventListener('touchstart', (e) => {
-        if (window.scrollY === 0 && e.touches.length === 1 && !isRefreshing) {
+        if (window.scrollY === 0 && e.touches.length === 1) {
             startY = e.touches[0].clientY;
             isPulling = true;
         }
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-        if (!isPulling || isRefreshing || window.scrollY > 0) return;
+        if (!isPulling || isRefreshing) return;
         currentY = e.touches[0].clientY;
         const diff = currentY - startY;
 
-        if (diff > 0) {
+        if (diff > 0 && window.scrollY === 0) {
             const pullDistance = Math.min(diff * 0.45, 90);
             const progress = Math.min(pullDistance / threshold, 1);
             
@@ -358,31 +195,266 @@ function initPullToRefresh() {
     }, { passive: true });
 }
 
-window.initPullToRefresh = initPullToRefresh;
-
-window.initCarousels = initCarousels;
-
 /**
- * Universal Map Tile Provider based on user preference
- * Defaults to Carto Dark Matter
+ * Saved Collections & Optimistic Bookmark Handler
  */
-window.getMapTileLayer = function() {
-    const style = localStorage.getItem('map_style') || 'dark';
-    if (style === 'satellite') {
-        return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri',
-            maxZoom: 18
+function showSystemToast(message, type = 'success') {
+    let container = document.getElementById('system-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'system-toast-container';
+        container.className = 'fixed bottom-24 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 max-w-sm px-4';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    const isError = type === 'error';
+    toast.className = `app-toast-alert pointer-events-auto px-4 py-2.5 rounded-full text-xs font-semibold shadow-2xl backdrop-blur-xl border flex items-center gap-2 transition-all duration-300 ${
+        isError ? 'bg-zinc-950/95 border-rose-500/40 text-rose-200 shadow-rose-950/50' : 'bg-zinc-950/95 border-white/20 text-white shadow-black/80'
+    }`;
+    
+    toast.innerHTML = `
+        <i data-lucide="${isError ? 'alert-circle' : 'check-circle-2'}" class="w-4 h-4 shrink-0 ${isError ? 'text-rose-400' : 'text-amber-400'}"></i>
+        <span class="truncate max-w-[260px]">${message}</span>
+    `;
+    container.appendChild(toast);
+    if (window.lucide) lucide.createIcons();
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 2800);
+}
+window.showSystemToast = showSystemToast;
+
+function updateBookmarkIconState(button, isBookmarked) {
+    button.dataset.bookmarked = isBookmarked ? 'true' : 'false';
+    const icon = button.querySelector('i[data-lucide="bookmark"]') || button.querySelector('svg');
+    if (icon) {
+        if (isBookmarked) {
+            icon.classList.remove('text-white');
+            icon.classList.add('text-amber-400', 'fill-amber-400');
+            icon.setAttribute('fill', '#fbbf24');
+            icon.setAttribute('stroke', '#fbbf24');
+            icon.style.fill = '#fbbf24';
+            icon.style.stroke = '#fbbf24';
+        } else {
+            icon.classList.remove('text-amber-400', 'fill-amber-400');
+            icon.classList.add('text-white');
+            icon.setAttribute('fill', 'none');
+            icon.setAttribute('stroke', 'currentColor');
+            icon.style.fill = 'none';
+            icon.style.stroke = 'currentColor';
+        }
+    }
+}
+
+let activeBookmarkPostId = null;
+
+function initBookmarkButtons() {
+    document.querySelectorAll('.btn-bookmark-ribbon').forEach(btn => {
+        // Sync icon state on load if bookmarked
+        if (btn.dataset.bookmarked === 'true') {
+            updateBookmarkIconState(btn, true);
+        }
+
+        if (btn.dataset.bookmarkInit) return;
+        btn.dataset.bookmarkInit = 'true';
+
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const postId = this.dataset.postId;
+            openBookmarkModal(postId);
         });
-    } else if (style === 'standard') {
-        return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap &copy; Contributors',
-            maxZoom: 19
+    });
+}
+window.initBookmarkButtons = initBookmarkButtons;
+
+async function openBookmarkModal(postId) {
+    activeBookmarkPostId = postId;
+    const modal = document.getElementById('global-bookmark-modal');
+    const container = document.getElementById('bookmark-collections-list');
+    if (!modal || !container) return;
+
+    // Reset inline form state
+    const inlineForm = document.getElementById('inline-create-collection-form');
+    const inlineArrow = document.getElementById('inline-create-arrow');
+    if (inlineForm) inlineForm.classList.add('hidden');
+    if (inlineArrow) inlineArrow.style.transform = 'rotate(0deg)';
+
+    modal.classList.remove('hidden');
+    container.innerHTML = '<div class="text-center py-4 text-xs text-zinc-500 font-mono">กำลังโหลดคอลเลกชัน...</div>';
+
+    try {
+        const response = await fetch(`/api/collections/?post_id=${postId}`);
+        const data = await response.json();
+
+        if (data.status === 'ok') {
+            let html = `
+                <label class="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 cursor-pointer transition">
+                    <div class="flex items-center gap-2.5">
+                        <i data-lucide="bookmark" class="w-4 h-4 text-amber-400"></i>
+                        <span class="text-xs font-bold text-white">บันทึกทั่วไป</span>
+                    </div>
+                    <input type="checkbox" ${data.is_general_saved ? 'checked' : ''} onchange="toggleBookmarkCollection(${postId}, null, this)" class="w-4 h-4 rounded border-zinc-700 text-amber-400 focus:ring-0 bg-zinc-950">
+                </label>
+            `;
+
+            if (data.collections && data.collections.length > 0) {
+                data.collections.forEach(col => {
+                    html += `
+                        <label class="flex items-center justify-between p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 cursor-pointer transition">
+                            <div class="flex items-center gap-2.5">
+                                <i data-lucide="folder" class="w-4 h-4 text-zinc-300"></i>
+                                <div class="space-y-0.5">
+                                    <span class="text-xs font-bold text-white block">${col.title}</span>
+                                    <span class="text-[10px] text-zinc-400 font-mono block">${col.posts_count} โพสต์ในทริปนี้</span>
+                                </div>
+                            </div>
+                            <input type="checkbox" ${col.is_saved ? 'checked' : ''} onchange="toggleBookmarkCollection(${postId}, ${col.id}, this)" class="w-4 h-4 rounded border-zinc-700 text-amber-400 focus:ring-0 bg-zinc-950">
+                        </label>
+                    `;
+                });
+            } else {
+                html += `
+                    <div class="p-3 text-center rounded-2xl bg-zinc-900/50 border border-dashed border-zinc-800 text-xs text-zinc-400">
+                        ยังไม่มีคอลเลกชันทริป คุณสามารถกดสร้างใหม่ได้ด้านล่าง
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+            if (window.lucide) lucide.createIcons();
+        }
+    } catch (err) {
+        console.error('Error fetching collections:', err);
+        container.innerHTML = '<div class="text-center py-4 text-xs text-rose-400">ไม่สามารถโหลดคอลเลกชันได้</div>';
+    }
+}
+window.openBookmarkModal = openBookmarkModal;
+
+function closeBookmarkModal() {
+    const modal = document.getElementById('global-bookmark-modal');
+    if (modal) modal.classList.add('hidden');
+    activeBookmarkPostId = null;
+}
+window.closeBookmarkModal = closeBookmarkModal;
+
+function toggleModalInlineCreateForm() {
+    const form = document.getElementById('inline-create-collection-form');
+    const arrow = document.getElementById('inline-create-arrow');
+    if (form) {
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) {
+            document.getElementById('inline-col-title').focus();
+            if (arrow) arrow.style.transform = 'rotate(180deg)';
+        } else {
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+window.toggleModalInlineCreateForm = toggleModalInlineCreateForm;
+
+async function toggleBookmarkCollection(postId, collectionId, checkbox) {
+    try {
+        const response = await fetch('/api/bookmarks/toggle/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ post_id: postId, collection_id: collectionId })
         });
-    } else {
-        return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            className: 'dark-map-tiles',
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+        const data = await response.json();
+        if (data.status === 'ok') {
+            showSystemToast(data.bookmarked ? 'บันทึกเข้าคอลเลกชันเรียบร้อย' : 'เอาออกจากคอลเลกชันแล้ว', 'success');
+            // Update all ribbon buttons on page for this post
+            document.querySelectorAll(`.btn-bookmark-ribbon[data-post-id="${postId}"]`).forEach(btn => {
+                updateBookmarkIconState(btn, data.is_bookmarked_any);
+            });
+        } else {
+            checkbox.checked = !checkbox.checked;
+            showSystemToast(data.message || 'ไม่สามารถบันทึกได้', 'error');
+        }
+    } catch (err) {
+        checkbox.checked = !checkbox.checked;
+        showSystemToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+    }
+}
+window.toggleBookmarkCollection = toggleBookmarkCollection;
+
+document.addEventListener('DOMContentLoaded', () => {
+    initCarousels();
+    initPullToRefresh();
+    initBookmarkButtons();
+
+    // Attach submit event listener to inline collection creation form in bookmark modal
+    const inlineForm = document.getElementById('inline-create-collection-form');
+    if (inlineForm) {
+        inlineForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('btn-submit-inline-col');
+            const titleInput = document.getElementById('inline-col-title');
+            const isPublicInput = document.getElementById('inline-col-is-public');
+
+            const title = titleInput.value.trim();
+            const is_public = isPublicInput.checked;
+            const postId = activeBookmarkPostId;
+
+            if (!title || !postId) return;
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'กำลังสร้าง...';
+
+            try {
+                // 1. Create collection
+                const createRes = await fetch('/api/collections/create/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: JSON.stringify({ title, is_public })
+                });
+
+                const createData = await createRes.json();
+                if (createData.status === 'success' && createData.collection) {
+                    const colId = createData.collection.id;
+
+                    // 2. Automatically bookmark active post into this newly created collection
+                    const toggleRes = await fetch('/api/bookmarks/toggle/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: JSON.stringify({ post_id: postId, collection_id: colId })
+                    });
+                    const toggleData = await toggleRes.json();
+
+                    showSystemToast(`สร้างคอลเลกชัน "${title}" และบันทึกโพสต์สำเร็จแล้ว`, 'success');
+                    
+                    // Update ribbon buttons state
+                    document.querySelectorAll(`.btn-bookmark-ribbon[data-post-id="${postId}"]`).forEach(btn => {
+                        updateBookmarkIconState(btn, toggleData.is_bookmarked_any);
+                    });
+
+                    // Refresh modal collections list
+                    titleInput.value = '';
+                    inlineForm.classList.add('hidden');
+                    openBookmarkModal(postId);
+                } else {
+                    showSystemToast(createData.message || 'ไม่สามารถสร้างคอลเลกชันได้', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showSystemToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'สร้างและบันทึก';
+            }
         });
     }
-};
+});

@@ -99,6 +99,14 @@ def post_list(request):
                 'url': f"/post/{p.id}/"
             })
 
+    user_bookmarked_post_ids = set()
+    if request.user.is_authenticated:
+        try:
+            from planner.models import Bookmark
+            user_bookmarked_post_ids = set(Bookmark.objects.filter(user=request.user).values_list('post_id', flat=True))
+        except Exception:
+            pass
+
     context = {
         'posts': posts,
         'query': query,
@@ -106,6 +114,7 @@ def post_list(request):
         'feed_tab': feed_tab,
         'following_ids': following_ids,
         'geo_posts_json': geo_posts,
+        'user_bookmarked_post_ids': user_bookmarked_post_ids,
     }
     return render(request, 'checkin/post_list.html', context)
 
@@ -122,10 +131,16 @@ def post_detail(request, pk):
 
     is_liked = False
     is_following = False
+    is_bookmarked = False
     if request.user.is_authenticated:
         is_liked = post.likes.filter(id=request.user.id).exists()
         if hasattr(request.user, 'profile') and request.user != post.user:
             is_following = request.user.profile.is_following(post.user)
+        try:
+            from planner.models import Bookmark
+            is_bookmarked = Bookmark.objects.filter(user=request.user, post=post).exists()
+        except Exception:
+            pass
 
     comments = post.comments.select_related('user', 'user__profile').all()
     comment_form = CommentForm()
@@ -134,6 +149,7 @@ def post_detail(request, pk):
         'post': post,
         'is_liked': is_liked,
         'is_following': is_following,
+        'is_bookmarked': is_bookmarked,
         'comments': comments,
         'comment_form': comment_form,
     }
@@ -444,6 +460,19 @@ def user_profile_view(request, username):
                 'url': f"/post/{p.id}/"
             })
 
+    from planner.models import Collection, Bookmark
+    if request.user.is_authenticated and request.user == target_user:
+        public_collections = Collection.objects.filter(user=target_user).prefetch_related('bookmarks__post')
+    else:
+        public_collections = Collection.objects.filter(user=target_user, is_public=True).prefetch_related('bookmarks__post')
+
+    user_bookmarked_post_ids = set()
+    if request.user.is_authenticated:
+        try:
+            user_bookmarked_post_ids = set(Bookmark.objects.filter(user=request.user).values_list('post_id', flat=True))
+        except Exception:
+            pass
+
     context = {
         'target_user': target_user,
         'profile': profile,
@@ -455,7 +484,9 @@ def user_profile_view(request, username):
         'following_count': profile.following_count,
         'is_following': is_following,
         'geo_posts': geo_posts,
+        'public_collections': public_collections,
         'is_self': (target_user == request.user),
+        'user_bookmarked_post_ids': user_bookmarked_post_ids,
     }
     return render(request, 'checkin/user_profile.html', context)
 
@@ -759,11 +790,20 @@ def search_view(request):
             Q(profile__bio__icontains=query)
         ).select_related('profile').prefetch_related('posts').distinct()
 
+    user_bookmarked_post_ids = set()
+    if request.user.is_authenticated:
+        try:
+            from planner.models import Bookmark
+            user_bookmarked_post_ids = set(Bookmark.objects.filter(user=request.user).values_list('post_id', flat=True))
+        except Exception:
+            pass
+
     context = {
         'query': query,
         'search_type': search_type,
         'post_results': post_results,
         'account_results': account_results,
+        'user_bookmarked_post_ids': user_bookmarked_post_ids,
     }
     return render(request, 'checkin/search.html', context)
 

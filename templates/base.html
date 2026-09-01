@@ -280,6 +280,12 @@
             <span class="text-[9px] font-bold mt-0.5">รอยเท้า</span>
         </a>
 
+        <!-- 4. คอลเลกชัน/ทริป -->
+        <a href="{% url 'saved_collections' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if '/planner/collections' in request.path %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="คอลเลกชัน & ทริป">
+            <i data-lucide="bookmark" class="w-5 h-5 {% if '/planner/collections' in request.path %}text-black{% endif %}"></i>
+            <span class="text-[9px] font-bold mt-0.5">คอลเลกชัน</span>
+        </a>
+
         <!-- 4. โปรไฟล์สาธารณะ -->
         <a href="{% url 'user_profile' username=user.username %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if request.resolver_match.url_name == 'user_profile' and request.resolver_match.kwargs.username == user.username %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="โปรไฟล์สาธารณะ">
             <div class="w-5 h-5 rounded-full overflow-hidden border {% if request.resolver_match.url_name == 'user_profile' and request.resolver_match.kwargs.username == user.username %}border-black ring-1 ring-black{% else %}border-zinc-500 group-hover:border-white{% endif %} flex items-center justify-center bg-zinc-900 shrink-0 shadow-sm">
@@ -341,26 +347,34 @@
     <!-- Mobile Bottom App Dock (Clean Minimalist Luxury Dock) -->
     {% if user.is_authenticated %}
     <nav class="fixed bottom-3 left-4 right-4 z-40 sm:hidden glass-header rounded-3xl border border-white/10 shadow-2xl safe-bottom">
-        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-5{% else %}grid-cols-4{% endif %} items-center h-16 px-1.5">
+        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-6{% else %}grid-cols-5{% endif %} items-center h-16 px-1">
             <!-- 1. สำรวจ -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[45px] py-1" title="สำรวจ">
+                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="สำรวจ">
                     <i data-lucide="compass" class="w-5 h-5"></i>
-                    <span class="text-[10px] mt-1 font-medium">สำรวจ</span>
+                    <span class="text-[9px] mt-1 font-medium">สำรวจ</span>
                 </a>
             </div>
 
             <!-- 2. ค้นหา -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[45px] py-1" title="ค้นหา">
+                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="ค้นหา">
                     <i data-lucide="search" class="w-5 h-5"></i>
-                    <span class="text-[10px] mt-1 font-medium">ค้นหา</span>
+                    <span class="text-[9px] mt-1 font-medium">ค้นหา</span>
                 </a>
             </div>
 
-            <!-- 3. โปรไฟล์สาธารณะ -->
+            <!-- 3. คอลเลกชัน -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[45px] py-1" title="โปรไฟล์">
+                <a href="{% url 'saved_collections' %}" class="flex flex-col items-center justify-center {% if '/planner/collections' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="คอลเลกชัน">
+                    <i data-lucide="bookmark" class="w-5 h-5"></i>
+                    <span class="text-[9px] mt-1 font-medium">คอลเลกชัน</span>
+                </a>
+            </div>
+
+            <!-- 4. โปรไฟล์สาธารณะ -->
+            <div class="flex items-center justify-center">
+                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="โปรไฟล์">
                     <div class="w-5 h-5 rounded-full overflow-hidden border {% if '/profile/' in request.path and user.username in request.path %}border-white ring-1 ring-white/40{% else %}border-zinc-600{% endif %} flex items-center justify-center bg-zinc-900 shadow-sm">
                         {% if user.profile.get_avatar_url %}
                             <img src="{{ user.profile.get_avatar_url }}" alt="Profile" class="w-full h-full object-cover">
@@ -368,30 +382,84 @@
                             <span class="text-[9px] font-black text-white">{{ user.profile.get_initial|default:user.username|slice:":1"|upper }}</span>
                         {% endif %}
                     </div>
-                    <span class="text-[10px] mt-1 font-medium">โปรไฟล์</span>
+                    <span class="text-[9px] mt-1 font-medium">โปรไฟล์</span>
                 </a>
             </div>
 
-            <!-- 4. ตั้งค่า -->
+            <!-- 5. ตั้งค่า -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[45px] py-1" title="ตั้งค่า">
+                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[40px] py-1" title="ตั้งค่า">
                     <i data-lucide="settings" class="w-5 h-5"></i>
-                    <span class="text-[10px] mt-1 font-medium">ตั้งค่า</span>
+                    <span class="text-[9px] mt-1 font-medium">ตั้งค่า</span>
                 </a>
             </div>
 
             {% if user.is_staff or user.is_superuser %}
-            <!-- 5. แอดมิน (สำหรับ Staff) -->
+            <!-- 6. แอดมิน (สำหรับ Staff) -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'admin_dashboard' %}" class="flex flex-col items-center justify-center {% if '/admin-dashboard' in request.path %}text-indigo-400 font-bold{% else %}text-indigo-300/70 hover:text-indigo-300{% endif %} active:scale-90 transition min-w-[45px] py-1" title="แอดมิน">
+                <a href="{% url 'admin_dashboard' %}" class="flex flex-col items-center justify-center {% if '/admin-dashboard' in request.path %}text-indigo-400 font-bold{% else %}text-indigo-300/70 hover:text-indigo-300{% endif %} active:scale-90 transition min-w-[40px] py-1" title="แอดมิน">
                     <i data-lucide="shield-alert" class="w-5 h-5"></i>
-                    <span class="text-[10px] mt-1 font-medium">แอดมิน</span>
+                    <span class="text-[9px] mt-1 font-medium">แอดมิน</span>
                 </a>
             </div>
             {% endif %}
         </div>
     </nav>
     {% endif %}
+
+    <!-- Global Bookmark Collection Selection Modal -->
+    <div id="global-bookmark-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity duration-200">
+        <div class="glass-card w-full max-w-sm rounded-3xl p-5 border border-white/15 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i data-lucide="bookmark" class="w-4 h-4 text-amber-400"></i>
+                    <span>เลือกคอลเลกชันที่ต้องการบันทึก</span>
+                </h3>
+                <button type="button" onclick="closeBookmarkModal()" class="p-1 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Collections List Container -->
+            <div id="bookmark-collections-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <div class="text-center py-4 text-xs text-zinc-500 font-mono">กำลังโหลดคอลเลกชัน...</div>
+            </div>
+
+            <!-- Inline Create Collection Form inside Bookmark Modal -->
+            <div class="pt-2 border-t border-zinc-800 space-y-2">
+                <button type="button" onclick="toggleModalInlineCreateForm()" class="w-full text-xs font-semibold text-zinc-300 hover:text-white transition flex items-center justify-between p-2 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="folder-plus" class="w-3.5 h-3.5 text-amber-400"></i>
+                        <span>+ สร้างคอลเลกชันใหม่</span>
+                    </span>
+                    <i data-lucide="chevron-down" id="inline-create-arrow" class="w-3.5 h-3.5 text-zinc-400 transition-transform"></i>
+                </button>
+
+                <form id="inline-create-collection-form" class="hidden space-y-2.5 p-3 rounded-2xl bg-zinc-900 border border-zinc-700/80 transition-all">
+                    <input type="text" id="inline-col-title" required placeholder="ชื่อคอลเลกชันใหม่ เช่น ทริปเชียงใหม่ 2026" class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs focus:outline-none focus:border-white">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] text-zinc-400 flex items-center gap-1.5 cursor-pointer select-none">
+                            <input type="checkbox" id="inline-col-is-public" class="w-3.5 h-3.5 rounded border-zinc-700 text-amber-400 focus:ring-0 bg-zinc-950">
+                            <span>เปิดสาธารณะ</span>
+                        </label>
+                        <button type="submit" id="btn-submit-inline-col" class="px-3.5 py-1.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition">
+                            สร้างและบันทึก
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="pt-2 border-t border-zinc-800 flex items-center justify-between">
+                <a href="{% url 'saved_collections' %}" class="text-xs font-semibold text-zinc-400 hover:text-white transition flex items-center gap-1">
+                    <i data-lucide="folder-heart" class="w-3.5 h-3.5"></i>
+                    <span>ดูโฟลเดอร์ทริปทั้งหมด</span>
+                </a>
+                <button type="button" onclick="closeBookmarkModal()" class="px-4 py-1.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition">
+                    เรียบร้อย
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Init Lucide Icons -->
     <script>
