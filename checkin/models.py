@@ -810,3 +810,66 @@ def update_post_review_stats(sender, instance, **kwargs):
         post = Post.objects.filter(pk=instance.post_id).first()
         if post:
             post.update_rating_stats()
+
+
+class PasswordResetOTP(models.Model):
+    """
+    Model สำหรับเก็บรหัสยืนยัน 6 หลัก (OTP) สำหรับการรีเซ็ตรหัสผ่านทางอีเมล (อายุ 60 วินาที พร้อมระบบป้องกัน Brute-force & Anti-Spam)
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='reset_otps',
+        verbose_name="ผู้ใช้"
+    )
+    email = models.EmailField(verbose_name="อีเมลที่ส่งรหัส")
+    otp_code = models.CharField(max_length=6, verbose_name="รหัส OTP 6 หลัก")
+    attempts = models.PositiveIntegerField(default=0, verbose_name="จำนวนครั้งที่กรอกผิด")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
+    is_used = models.BooleanField(default=False, verbose_name="ถูกใช้งานแล้ว")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "รหัสยืนยันรีเซ็ตรหัสผ่าน (OTP)"
+        verbose_name_plural = "รหัสยืนยันรีเซ็ตรหัสผ่าน (OTP) ทั้งหมด"
+
+    def __str__(self):
+        return f"OTP for {self.user.username} ({self.email}): {self.otp_code} [{'Used' if self.is_used else 'Active'}]"
+
+    def is_valid(self, expiration_seconds=180):
+        """
+        ตรวจสอบว่ารหัส OTP ยังไม่ถูกใช้, ไม่หมดอายุ (ค่าเริ่มต้น 180 วินาที = 3 นาที เผื่อเวลาส่งอีเมล) และไม่เกินจำนวนครั้งที่อนุญาต (5 ครั้ง)
+        """
+        from django.utils import timezone
+        import datetime
+        if self.is_used:
+            return False
+        if self.attempts >= 5:
+            return False
+        expiry_time = self.created_at + datetime.timedelta(seconds=expiration_seconds)
+        return timezone.now() <= expiry_time
+
+    def time_remaining_seconds(self, expiration_seconds=60):
+        """
+        คืนค่าจำนวนวินาทีที่เหลืออยู่ของรหัส OTP (0-60 วินาที)
+        """
+        from django.utils import timezone
+        import datetime
+        expiry_time = self.created_at + datetime.timedelta(seconds=expiration_seconds)
+        remaining = (expiry_time - timezone.now()).total_seconds()
+        return max(0, int(remaining))
+
+    @classmethod
+    def create_otp_for_user(cls, user, email):
+        """
+        สร้างและบันทึกรหัส OTP 6 หลักใหม่สำหรับผู้ใช้
+        """
+        import secrets
+        code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+        return cls.objects.create(
+            user=user,
+            email=email,
+            otp_code=code
+        )
+
+

@@ -5,6 +5,7 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.contrib.auth import login, logout, authenticate, update_session_auth_hash
@@ -13,9 +14,12 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.db.models import Count, Q, F
 from django.http import JsonResponse, HttpResponseForbidden
-from .models import Post, PostImage, Comment, Follow, Notification, Profile, Report, PlaceReview, Province, Badge, UserBadge
-from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm
+from django.core.mail import send_mail
+from .models import Post, PostImage, Comment, Follow, Notification, Profile, Report, PlaceReview, Province, Badge, UserBadge, PasswordResetOTP
+from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm, ForgotPasswordRequestForm, VerifyOTPOnlyForm, SetNewPasswordForm, DeleteAccountForm
 from .utils import calculate_haversine_distance, get_live_weather
+
+
 
 @login_required(login_url='login')
 def post_list(request):
@@ -825,6 +829,13 @@ def settings_about_view(request):
     """
     return render(request, 'checkin/settings_about.html')
 
+def offline_view(request):
+    """
+    หน้าแสดงผลเมื่ออยู่ในโหมดออฟไลน์ (PWA Offline Fallback)
+    """
+    return render(request, 'offline.html')
+
+
 @login_required(login_url='login')
 def export_user_data(request):
     """
@@ -932,6 +943,268 @@ def login_view(request):
     return render(request, 'checkin/login.html', {'form': form, 'next': request.GET.get('next', '')})
 
 
+def forgot_password_view(request):
+    """
+    ขั้นตอนที่ 1: หน้าขอรับรหัส OTP สำหรับรีเซ็ตรหัสผ่านทางอีเมล
+    """
+    if request.user.is_authenticated:
+        return redirect('post_list')
+
+    if request.method == 'POST':
+        form = ForgotPasswordRequestForm(request.POST)
+        if form.is_valid():
+            user = form.user
+            email = user.email.strip()
+
+            # Invalidate previous un-used OTPs
+            PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
+
+            # สร้าง OTP 6 หลัก
+            otp = PasswordResetOTP.create_otp_for_user(user, email)
+
+            # ส่งอีเมล
+            subject = '[ที่นี่มีอะไร] รหัสยืนยันสำหรับรีเซ็ตรหัสผ่านของคุณ'
+            message_text = f"""สวัสดีคุณ {user.profile.get_display_name() if hasattr(user, 'profile') else user.username},
+
+คุณได้ทำการขอรีเซ็ตรหัสผ่านสำหรับบัญชี @{user.username} บนระบบ "ที่นี่มีอะไร" (Tinimeearai)
+
+รหัสยืนยัน (OTP) ของคุณคือ: {otp.otp_code}
+
+* ⚠️ รหัสยืนยันนี้มีอายุการใช้งานสำหรับตั้งรหัสผ่านใหม่ กรุณากรอกในหน้าเว็บโดยเร็ว
+* หากคุณไม่ได้เป็นผู้ส่งคำขอนี้ กรุณาละเว้นอีเมลฉบับนี้ บัญชีของคุณจะยังคงปลอดภัย
+
+ขอแสดงความนับถือ,
+ทีมงาน ที่นี่มีอะไร (Tinimeearai)
+"""
+            email_sent_ok = False
+            try:
+                send_mail(
+                    subject=subject,
+                    message=message_text,
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@tinimeearai.com'),
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+                email_sent_ok = True
+            except Exception as e:
+                # Fallback print to server console for dev
+                print(f"[Email Notice] Could not send via external SMTP: {e}. [DEV OTP CODE: {otp.otp_code}]")
+
+            # Mask email for UI
+            parts = email.split('@')
+            name, domain = parts[0], parts[1]
+            masked_name = name[0] + '*' * max(1, len(name) - 2) + (name[-1] if len(name) > 1 else '')
+            masked_email = f"{masked_name}@{domain}"
+
+            request.session['reset_user_id'] = user.id
+            request.session['reset_masked_email'] = masked_email
+            request.session['otp_verified'] = False
+
+            if settings.DEBUG and not email_sent_ok:
+                messages.info(request, f'🔔 [โหมดพัฒนา] รหัส OTP ของคุณคือ {otp.otp_code}')
+            else:
+                messages.success(request, f'รหัสยืนยัน 6 หลักถูกส่งไปยัง {masked_email} แล้ว ✉️')
+                
+            return redirect('verify_reset_otp')
+        else:
+            messages.error(request, 'กรุณาตรวจสอบข้อมูลที่กรอกอีกครั้ง')
+    else:
+        form = ForgotPasswordRequestForm()
+
+    return render(request, 'checkin/forgot_password.html', {'form': form})
+
+
+def resend_reset_otp_view(request):
+    """
+    API / Endpoint สำหรับขอส่งรหัส OTP ใหม่อีกครั้งทันที
+    """
+    if request.user.is_authenticated:
+        return redirect('post_list')
+
+    user_id = request.session.get('reset_user_id')
+    if not user_id:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+            return JsonResponse({'success': False, 'error': 'กรุณาระบุชื่อผู้ใช้ก่อนขอรหัส'}, status=400)
+        messages.warning(request, 'กรุณาระบุชื่อผู้ใช้ก่อนขอรหัส')
+        return redirect('forgot_password')
+
+    user = get_object_or_404(User, pk=user_id)
+    email = user.email.strip()
+
+    # Invalidate previous OTPs
+    PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
+
+    # Create fresh OTP
+    otp = PasswordResetOTP.create_otp_for_user(user, email)
+
+    # Send Email
+    subject = '[ที่นี่มีอะไร] รหัสยืนยันใหม่สำหรับรีเซ็ตรหัสผ่านของคุณ'
+    message_text = f"""สวัสดีคุณ {user.profile.get_display_name() if hasattr(user, 'profile') else user.username},
+
+รหัสยืนยัน (OTP) ใหม่ของคุณคือ: {otp.otp_code}
+
+* หากคุณไม่ได้เป็นผู้ส่งคำขอนี้ กรุณาละเว้นอีเมลฉบับนี้ บัญชีของคุณจะยังคงปลอดภัย
+
+ขอแสดงความนับถือ,
+ทีมงาน ที่นี่มีอะไร (Tinimeearai)
+"""
+    try:
+        send_mail(
+            subject=subject,
+            message=message_text,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@tinimeearai.com'),
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        print(f"[Email Notice] Resend error: {e}. [DEV OTP CODE: {otp.otp_code}]")
+
+    request.session['otp_verified'] = False
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+        return JsonResponse({
+            'success': True,
+            'message': 'ส่งรหัสยืนยัน OTP ใหม่ไปยังอีเมลของคุณเรียบร้อยแล้ว ✉️',
+            'time_remaining': 60
+        })
+
+    messages.success(request, 'ส่งรหัสยืนยัน OTP ใหม่เรียบร้อยแล้ว ✉️')
+    return redirect('verify_reset_otp')
+
+
+def verify_reset_otp_view(request):
+    """
+    ขั้นตอนที่ 2: หน้ากรอกและยืนยันรหัส OTP 6 หลัก (รองรับทั้ง AJAX แบบ Real-time และ Form Submit)
+    """
+    if request.user.is_authenticated:
+        return redirect('post_list')
+
+    user_id = request.session.get('reset_user_id')
+    if not user_id:
+        messages.warning(request, 'กรุณาระบุชื่อผู้ใช้หรืออีเมลก่อนเพื่อรับรหัสยืนยัน')
+        return redirect('forgot_password')
+
+    user = get_object_or_404(User, pk=user_id)
+    masked_email = request.session.get('reset_masked_email', user.email)
+
+    latest_otp = PasswordResetOTP.objects.filter(
+        user=user,
+        is_used=False
+    ).order_by('-created_at').first()
+
+    time_remaining = latest_otp.time_remaining_seconds(60) if latest_otp else 0
+
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '') or request.content_type == 'application/json'
+
+    if request.method == 'POST':
+        import json
+        post_data = request.POST
+        if request.content_type == 'application/json':
+            try:
+                post_data = json.loads(request.body.decode('utf-8'))
+            except Exception:
+                post_data = {}
+
+        form = VerifyOTPOnlyForm(user=user, data=post_data)
+        if form.is_valid():
+            # Mark OTP as used and set session verified flag
+            form.otp_record.is_used = True
+            form.otp_record.save(update_fields=['is_used'])
+            request.session['otp_verified'] = True
+
+            if is_ajax:
+                return JsonResponse({
+                    'success': True,
+                    'redirect_url': reverse('set_new_password')
+                })
+
+            messages.success(request, '✅ ยืนยันรหัส OTP สำเร็จแล้ว! กรุณากำหนดรหัสผ่านใหม่ของคุณ')
+            return redirect('set_new_password')
+        else:
+            err_msg = 'รหัสยืนยัน OTP ไม่ถูกต้อง'
+            if form.errors.get('otp_code'):
+                err_msg = form.errors['otp_code'][0]
+
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'error': err_msg
+                }, status=400)
+
+            messages.error(request, err_msg)
+    else:
+        form = VerifyOTPOnlyForm(user=user)
+
+    return render(request, 'checkin/forgot_password_verify.html', {
+        'form': form,
+        'masked_email': masked_email,
+        'username': user.username,
+        'time_remaining': time_remaining
+    })
+
+
+
+
+def set_new_password_view(request):
+    """
+    ขั้นตอนที่ 3: หน้ากำหนดรหัสผ่านใหม่ (เข้าถึงได้เฉพาะเมื่อผ่านการยืนยัน OTP แล้วเท่านั้น)
+    """
+    if request.user.is_authenticated:
+        return redirect('post_list')
+
+    user_id = request.session.get('reset_user_id')
+    is_verified = request.session.get('otp_verified')
+
+    if not user_id or not is_verified:
+        messages.warning(request, 'กรุณายืนยันรหัส OTP ให้สำเร็จก่อนตั้งรหัสผ่านใหม่')
+        return redirect('forgot_password')
+
+    user = get_object_or_404(User, pk=user_id)
+
+    if request.method == 'POST':
+        form = SetNewPasswordForm(user=user, data=request.POST)
+        if form.is_valid():
+            form.save()
+            # Clean session variables
+            request.session.pop('reset_user_id', None)
+            request.session.pop('reset_masked_email', None)
+            request.session.pop('otp_verified', None)
+            messages.success(request, '🎉 เปลี่ยนรหัสผ่านใหม่สำเร็จแล้ว! กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่ 🔒')
+            return redirect('login')
+        else:
+            messages.error(request, 'การตั้งรหัสผ่านใหม่ไม่สำเร็จ กรุณาตรวจสอบความถูกต้องของรหัสผ่าน')
+    else:
+        form = SetNewPasswordForm(user=user)
+
+    return render(request, 'checkin/forgot_password_new_password.html', {
+        'form': form,
+        'username': user.username
+    })
+
+
+
+@login_required(login_url='login')
+def delete_account_view(request):
+    """
+    หน้าและฟังก์ชันสำหรับลบบัญชีตนเองถาวร (Danger Zone)
+    """
+    if request.method == 'POST':
+        form = DeleteAccountForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            username = request.user.username
+            logout(request)
+            # Delete user account and cascade associated data
+            User.objects.filter(username=username).delete()
+            messages.info(request, f'บัญชี @{username} และข้อมูลทั้งหมดของคุณถูกลบออกจากระบบเรียบร้อยแล้ว หวังว่าจะได้พบกันใหม่อีกครั้ง')
+            return redirect('register')
+        else:
+            messages.error(request, 'ไม่สามารถลบบัญชีได้ กรุณาตรวจสอบรหัสผ่านและข้อความยืนยัน')
+    else:
+        form = DeleteAccountForm(user=request.user)
+
+    return render(request, 'checkin/settings_delete_account.html', {'form': form})
+
+
 def logout_view(request):
     """
     ออกจากระบบ
@@ -939,6 +1212,7 @@ def logout_view(request):
     logout(request)
     messages.info(request, 'คุณได้ออกจากระบบเรียบร้อยแล้ว')
     return redirect('login')
+
 
 @login_required(login_url='login')
 def notifications_view(request):

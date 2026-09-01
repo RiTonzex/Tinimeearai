@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}คุณกำลังออฟไลน์ - ที่นี่มีอะไร{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto py-12 text-center space-y-6">
+    <div class="p-8 md:p-10 rounded-[2.5rem] glass-card border border-white/[0.08] shadow-2xl space-y-5 relative overflow-hidden">
+        <!-- Offline Animated Icon -->
+        <div class="w-20 h-20 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 mx-auto shadow-2xl relative">
+            <i data-lucide="wifi-off" class="w-10 h-10 text-zinc-400 stroke-[1.5]"></i>
+            <span class="absolute -top-1 -right-1 flex h-4 w-4">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-4 w-4 bg-amber-500"></span>
+            </span>
+        </div>
+
+        <div class="space-y-2">
+            <h1 class="text-2xl font-black text-white tracking-tight">คุณกำลังออฟไลน์</h1>
+            <p class="text-xs text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                ดูเหมือนสัญญาณอินเทอร์เน็ตของคุณจะขาดหายไปชั่วคราว คุณยังสามารถเปิดดูเนื้อหาหรือข้อมูลที่โหลดไว้แล้วในเครื่องได้
+            </p>
+        </div>
+
+        <div class="space-y-2.5 pt-2">
+            <button type="button" onclick="window.location.reload()" class="w-full py-4 px-4 rounded-2xl bg-white hover:bg-zinc-200 text-black font-black text-xs shadow-xl shadow-white/10 active:scale-95 transition flex items-center justify-center gap-2">
+                <i data-lucide="refresh-cw" class="w-4 h-4 text-black"></i>
+                <span>ลองเชื่อมต่อใหม่อีกครั้ง</span>
+            </button>
+            <a href="{% url 'post_list' %}" class="w-full py-3.5 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white font-bold text-xs transition flex items-center justify-center gap-2 active:scale-95">
+                <i data-lucide="compass" class="w-4 h-4 text-zinc-400"></i>
+                <span>กลับไปหน้าหลัก</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

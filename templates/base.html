@@ -5,12 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <!-- Favicon (Pure Black & White Minimalist Favicon) -->
+    <!-- Favicon & PWA Icons (Pure Black & White Minimalist Luxury Favicon) -->
     <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}?v=black_2026">
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}?v=black_2026">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'favicon.png' %}?v=black_2026">
     <link rel="shortcut icon" href="{% static 'favicon.ico' %}?v=black_2026">
-    <link rel="apple-touch-icon" href="{% static 'favicon.png' %}?v=black_2026">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}?v=pwa_2026">
+    <link rel="manifest" href="/manifest.json">
     
     <!-- Mobile PWA & Web App Meta Tags -->
     <meta name="theme-color" content="#000000">
@@ -18,6 +19,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ที่นี่มีอะไร">
+    <meta name="application-name" content="ที่นี่มีอะไร">
     <meta name="csrf-token" content="{{ csrf_token }}">
     
     <title>{% block title %}ที่นี่มีอะไร - Travel & Check-in Community{% endblock %}</title>
@@ -236,9 +238,9 @@
                             </div>
                             <span class="text-xs font-semibold text-zinc-300 hidden lg:inline group-hover:text-white transition">{{ user.profile.get_display_name|default:user.username }}</span>
                         </a>
-                        <a href="{% url 'logout' %}" class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-rose-400 hover:border-rose-900/60 transition active:scale-90" title="ออกจากระบบ">
+                        <button type="button" onclick="openGlobalLogoutModal()" class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-rose-400 hover:border-rose-900/60 transition active:scale-90 cursor-pointer" title="ออกจากระบบ">
                             <i data-lucide="log-out" class="w-4 h-4"></i>
-                        </a>
+                        </button>
                     </div>
                 {% else %}
                     <a href="{% url 'login' %}" class="text-xs md:text-sm font-semibold text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl hover:bg-zinc-900 transition">
@@ -509,9 +511,77 @@
         </div>
     </div>
 
+    {% if user.is_authenticated %}
+    <!-- Global Logout Confirmation Modal with Intelligent No-Email Warning -->
+    <div id="global-logout-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="max-w-sm w-full glass-card p-6 md:p-7 rounded-[2rem] border border-white/10 shadow-2xl space-y-4 text-center animate-scale-up">
+            {% if not user.email or user.email|length == 0 %}
+                <!-- Warning: No email bound to account -->
+                <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
+                    <i data-lucide="alert-triangle" class="w-7 h-7"></i>
+                </div>
+                <div class="space-y-1.5">
+                    <h3 class="text-base font-black text-white">คุณยังไม่ได้ระบุอีเมลในระบบ!</h3>
+                    <p class="text-xs text-amber-200/90 leading-relaxed font-medium">
+                        ⚠️ หากออกจากระบบและ<strong>ลืมรหัสผ่าน จะไม่สามารถรีเซ็ตได้นะ</strong> เพราะคุณยังไม่ได้ใส่อีเมลไว้
+                    </p>
+                </div>
+                <div class="space-y-2 pt-2">
+                    <a href="{% url 'settings_profile' %}" class="w-full py-3.5 px-4 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-white/10 active:scale-95">
+                        <i data-lucide="mail-plus" class="w-4 h-4 text-black"></i>
+                        <span>เพิ่มอีเมลตอนนี้ (แนะนำ)</span>
+                    </a>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeGlobalLogoutModal()" class="flex-1 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold transition">
+                            ยกเลิก
+                        </button>
+                        <a href="{% url 'logout' %}" class="flex-1 py-3 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg text-center">
+                            ยืนยันออกจากระบบ
+                        </a>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Standard Logout confirmation -->
+                <div class="w-12 h-12 rounded-2xl bg-rose-950/40 border border-rose-800/50 text-rose-400 flex items-center justify-center mx-auto">
+                    <i data-lucide="log-out" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white">ยืนยันการออกจากระบบ?</h3>
+                    <p class="text-xs text-zinc-400 mt-1">คุณจะต้องเข้าสู่ระบบใหม่อีกครั้งเพื่อเข้าใช้งาน</p>
+                </div>
+                <div class="flex items-center gap-2.5 pt-2">
+                    <button type="button" onclick="closeGlobalLogoutModal()" class="flex-1 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold transition">
+                        ยกเลิก
+                    </button>
+                    <a href="{% url 'logout' %}" class="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg text-center">
+                        ออกจากระบบ
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Init Lucide Icons -->
     <script>
         lucide.createIcons();
+
+        window.openGlobalLogoutModal = function() {
+            const modal = document.getElementById('global-logout-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                if (window.lucide) lucide.createIcons();
+            }
+        };
+
+        window.closeGlobalLogoutModal = function() {
+            const modal = document.getElementById('global-logout-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
 
         window.openUserReportModal = function(itemType, itemId, targetName) {
             const modal = document.getElementById('user-report-modal');
@@ -559,6 +629,174 @@
                 });
             }
         });
+    </script>
+    <!-- PWA Install Floating Compact Badge (Small Corner Pill) -->
+    <div id="pwa-install-banner" class="fixed bottom-20 md:bottom-6 right-4 z-40 glass-card p-1.5 pl-2.5 pr-2 rounded-full border border-white/20 shadow-2xl hidden items-center gap-2.5 animate-slide-up backdrop-blur-2xl bg-black/85 text-xs">
+        <div class="flex items-center gap-2 cursor-pointer" onclick="handlePwaInstallClick()">
+            <div class="w-6 h-6 rounded-lg bg-black border border-zinc-700 p-0.5 shadow shrink-0 overflow-hidden">
+                <img src="{% static 'icons/icon-192.png' %}" alt="App Icon" class="w-full h-full object-cover rounded-[5px]">
+            </div>
+            <span class="text-white font-bold tracking-tight text-[11px] hidden sm:inline">ติดตั้ง "ที่นี่มีอะไร"</span>
+            <span class="text-white font-bold tracking-tight text-[11px] sm:hidden">ติดตั้งแอป</span>
+        </div>
+        <button type="button" onclick="handlePwaInstallClick()" class="py-1 px-2.5 rounded-full bg-white hover:bg-zinc-200 text-black text-[11px] font-black transition shadow-sm active:scale-95 flex items-center gap-1">
+            <i data-lucide="download" class="w-3 h-3 text-black"></i>
+            <span>โหลด</span>
+        </button>
+        <button type="button" onclick="dismissPwaBanner()" class="text-zinc-500 hover:text-white p-1 rounded-full hover:bg-zinc-800 transition" title="ปิด">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+    </div>
+
+    <!-- iOS Safari "Add to Home Screen" Instruction Modal -->
+    <div id="pwa-ios-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="max-w-sm w-full glass-card p-6 rounded-[2rem] border border-white/10 shadow-2xl space-y-4 text-center animate-scale-up">
+            <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white mx-auto shadow-xl">
+                <i data-lucide="smartphone" class="w-7 h-7"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 class="text-base font-black text-white">ติดตั้งบน iPhone / iPad</h3>
+                <p class="text-xs text-zinc-400">ติดตั้งเป็นแอปเพื่อเข้าใช้งานแบบเต็มหน้าจอ</p>
+            </div>
+            <div class="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-left space-y-3 text-xs text-zinc-300">
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-white text-black font-black text-xs flex items-center justify-center shrink-0">1</span>
+                    <span>แตะที่ปุ่ม <strong class="text-white">แชร์ (Share ⎋)</strong> ที่แถบเมนูด้านล่าง Safari</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-white text-black font-black text-xs flex items-center justify-center shrink-0">2</span>
+                    <span>เลื่อนลงแล้วเลือก <strong class="text-white">➕ เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)</strong></span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-white text-black font-black text-xs flex items-center justify-center shrink-0">3</span>
+                    <span>แตะ <strong class="text-white">เพิ่ม (Add)</strong> ที่มุมขวาบนเพื่อเสร็จสิ้น</span>
+                </div>
+            </div>
+            <button type="button" onclick="closeIosPwaModal()" class="w-full py-3 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition">
+                เข้าใจแล้ว
+            </button>
+        </div>
+    </div>
+
+    <!-- PWA Service Worker & Install Handler -->
+    <script>
+        let deferredPwaPrompt = null;
+
+        // Check if running as installed standalone PWA
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        const isAlreadyInstalled = isStandalone || localStorage.getItem('pwa_app_installed') === 'true';
+
+        // Check if iOS
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        // Function to hide all install UI elements
+        function hideAllPwaInstallElements() {
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.classList.add('hidden');
+                banner.classList.remove('flex');
+            }
+            document.querySelectorAll('.pwa-install-item').forEach((el) => {
+                el.style.display = 'none';
+            });
+        }
+
+        // Run immediate check
+        if (isAlreadyInstalled) {
+            document.addEventListener('DOMContentLoaded', hideAllPwaInstallElements);
+            hideAllPwaInstallElements();
+        }
+
+        // 1. Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((reg) => {
+                        console.log('[PWA] Service Worker registered with scope:', reg.scope);
+                    })
+                    .catch((err) => {
+                        console.warn('[PWA] Service Worker registration failed:', err);
+                    });
+            });
+        }
+
+        // 2. Listen for Chrome/Edge/Android beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPwaPrompt = e;
+            if (!isAlreadyInstalled) {
+                showPwaBannerIfEligible();
+            }
+        });
+
+        // 3. Listen for appinstalled event (fired when user completes installation)
+        window.addEventListener('appinstalled', () => {
+            console.log('[PWA] App successfully installed!');
+            localStorage.setItem('pwa_app_installed', 'true');
+            hideAllPwaInstallElements();
+        });
+
+        function showPwaBannerIfEligible() {
+            if (isAlreadyInstalled) return;
+            const dismissedTime = localStorage.getItem('pwa_banner_dismissed_time');
+            if (dismissedTime && (Date.now() - parseInt(dismissedTime, 10)) < 3 * 24 * 60 * 60 * 1000) {
+                // Dismissed within last 3 days
+                return;
+            }
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.classList.remove('hidden');
+                banner.classList.add('flex');
+                if (window.lucide) lucide.createIcons();
+            }
+        }
+
+        function dismissPwaBanner() {
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.classList.add('hidden');
+                banner.classList.remove('flex');
+            }
+            localStorage.setItem('pwa_banner_dismissed_time', Date.now().toString());
+        }
+
+        function handlePwaInstallClick() {
+            if (deferredPwaPrompt) {
+                deferredPwaPrompt.prompt();
+                deferredPwaPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('[PWA] User accepted the install prompt');
+                        localStorage.setItem('pwa_app_installed', 'true');
+                        hideAllPwaInstallElements();
+                    }
+                    deferredPwaPrompt = null;
+                });
+            } else if (isIos) {
+                // Show iOS guide modal
+                const modal = document.getElementById('pwa-ios-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    if (window.lucide) lucide.createIcons();
+                }
+            } else {
+                alert('คุณสามารถกดปุ่ม "ติดตั้งแอป" หรือ "Add to Home Screen" จากเมนูของเบราว์เซอร์ได้ทันทีครับ ✨');
+            }
+        }
+
+        function closeIosPwaModal() {
+            const modal = document.getElementById('pwa-ios-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            dismissPwaBanner();
+        }
+
+        // Trigger check for iOS after slight delay
+        if (isIos && !isAlreadyInstalled) {
+            setTimeout(showPwaBannerIfEligible, 2000);
+        }
     </script>
     <!-- Custom Main JS with Cache Busting -->
     <script src="{% static 'js/thailand_map.js' %}?v=20260902_platinum_harmony"></script>

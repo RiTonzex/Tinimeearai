@@ -702,5 +702,197 @@ class CheckinAppTests(TestCase):
         self.assertEqual(response_admin.status_code, 200)
         self.assertNotIn('สแปมที่ถูกแอดมินซ่อน', response_admin.content.decode('utf-8'))
 
+    def test_forgot_password_request_otp_success(self):
+        from checkin.models import PasswordResetOTP
+        from django.core import mail
+        user_with_email = User.objects.create_user(username='travellover', password='password123', email='travel@example.com')
+        
+        response = self.client.post(reverse('forgot_password'), {
+            'identifier': 'travel@example.com'
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('verify_reset_otp'), response.url)
+
+        # Check OTP created in DB
+        otp = PasswordResetOTP.objects.filter(user=user_with_email, email='travel@example.com').first()
+        self.assertIsNotNone(otp)
+        self.assertEqual(len(otp.otp_code), 6)
+        self.assertTrue(otp.is_valid())
+
+        # Check email sent
+        self.assertGreaterEqual(len(mail.outbox), 1)
+        self.assertIn(otp.otp_code, mail.outbox[-1].body)
+
+    def test_forgot_password_no_email_fails(self):
+        user_no_email = User.objects.create_user(username='noemailuser', password='password123', email='')
+        response = self.client.post(reverse('forgot_password'), {
+            'identifier': 'noemailuser'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ยังไม่ได้ระบุอีเมล')
+
+    def test_verify_reset_otp_success(self):
+        from checkin.models import PasswordResetOTP
+        user = User.objects.create_user(username='resetuser', password='oldpassword123', email='reset@example.com')
+        otp = PasswordResetOTP.create_otp_for_user(user, 'reset@example.com')
+
+        # Set session
+        session = self.client.session
+        session['reset_user_id'] = user.id
+        session['reset_masked_email'] = 'r***t@example.com'
+        session.save()
+
+        response = self.client.post(reverse('verify_reset_otp'), {
+            'otp_code': otp.otp_code,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('set_new_password'), response.url)
+
+        # Verify OTP marked as used
+        otp.refresh_from_db()
+        self.assertTrue(otp.is_used)
+
+        # Step 3: Set new password
+        response2 = self.client.post(reverse('set_new_password'), {
+            'new_password1': 'newpassword123',
+            'new_password2': 'newpassword123'
+        })
+        self.assertEqual(response2.status_code, 302)
+        self.assertIn(reverse('login'), response2.url)
+
+        # Verify password changed
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('newpassword123'))
+
+    def test_verify_reset_otp_invalid_code_fails(self):
+        from checkin.models import PasswordResetOTP
+        user = User.objects.create_user(username='resetuser2', password='oldpassword123', email='reset2@example.com')
+        otp = PasswordResetOTP.create_otp_for_user(user, 'reset2@example.com')
+
+        session = self.client.session
+        session['reset_user_id'] = user.id
+        session.save()
+
+        response = self.client.post(reverse('verify_reset_otp'), {
+            'otp_code': '000000',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ไม่ถูกต้อง')
+
+    def test_verify_reset_otp_expired_fails(self):
+        from checkin.models import PasswordResetOTP
+        from django.utils import timezone
+        import datetime
+        user = User.objects.create_user(username='expireduser', password='oldpassword123', email='expired@example.com')
+        otp = PasswordResetOTP.create_otp_for_user(user, 'expired@example.com')
+        # Manually set created_at back by 200 seconds (beyond 180s threshold)
+        PasswordResetOTP.objects.filter(id=otp.id).update(created_at=timezone.now() - datetime.timedelta(seconds=200))
+
+        session = self.client.session
+        session['reset_user_id'] = user.id
+        session.save()
+
+        response = self.client.post(reverse('verify_reset_otp'), {
+            'otp_code': otp.otp_code,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'หมดอายุ')
+
+    def test_verify_reset_otp_max_attempts_lockout(self):
+        from checkin.models import PasswordResetOTP
+        user = User.objects.create_user(username='lockoutuser', password='oldpassword123', email='lockout@example.com')
+        otp = PasswordResetOTP.create_otp_for_user(user, 'lockout@example.com')
+        otp.attempts = 5
+        otp.save()
+
+        session = self.client.session
+        session['reset_user_id'] = user.id
+        session.save()
+
+        response = self.client.post(reverse('verify_reset_otp'), {
+            'otp_code': otp.otp_code,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'เกิน 5 ครั้ง')
+
+    def test_verify_reset_otp_ajax_success(self):
+        from checkin.models import PasswordResetOTP
+        user = User.objects.create_user(username='ajaxuser', password='oldpassword123', email='ajax@example.com')
+        otp = PasswordResetOTP.create_otp_for_user(user, 'ajax@example.com')
+
+        session = self.client.session
+        session['reset_user_id'] = user.id
+        session.save()
+
+        response = self.client.post(
+            reverse('verify_reset_otp'),
+            data={'otp_code': otp.otp_code},
+            content_type='application/json',
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json().get('success'))
+
+    def test_resend_reset_otp_api_success(self):
+        from checkin.models import PasswordResetOTP
+        user = User.objects.create_user(username='resenduser', password='oldpassword123', email='resend@example.com')
+        otp = PasswordResetOTP.create_otp_for_user(user, 'resend@example.com')
+
+        session = self.client.session
+        session['reset_user_id'] = user.id
+        session.save()
+
+        response = self.client.post(
+            reverse('resend_reset_otp'),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json().get('success'))
+        # Ensure previous OTP was invalidated and new OTP generated
+        otp.refresh_from_db()
+        self.assertTrue(otp.is_used)
+
+    def test_set_new_password_without_otp_fails(self):
+        response = self.client.get(reverse('set_new_password'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('forgot_password'), response.url)
+
+    def test_delete_account_success(self):
+        del_user = User.objects.create_user(username='byebyeuser', password='password123')
+        self.client.login(username='byebyeuser', password='password123')
+
+        response = self.client.post(reverse('delete_account'), {
+            'password': 'password123',
+            'confirmation_text': 'ลบบัญชี'
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(User.objects.filter(username='byebyeuser').exists())
+
+    def test_delete_account_invalid_password_fails(self):
+        keep_user = User.objects.create_user(username='stayuser', password='password123')
+        self.client.login(username='stayuser', password='password123')
+
+        response = self.client.post(reverse('delete_account'), {
+            'password': 'wrongpassword',
+            'confirmation_text': 'ลบบัญชี'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.filter(username='stayuser').exists())
+
+    def test_pwa_offline_page(self):
+        response = self.client.get(reverse('offline'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'คุณกำลังออฟไลน์')
+
+    def test_pwa_manifest_route(self):
+        response = self.client.get('/manifest.json')
+        self.assertIn(response.status_code, (200, 301, 302))
+
+    def test_pwa_service_worker_route(self):
+        response = self.client.get('/sw.js')
+        self.assertIn(response.status_code, (200, 301, 302))
+
+
+
 
 

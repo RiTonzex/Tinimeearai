@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Post, PostImage, Comment, Profile, Notification, Report
+from .models import Post, PostImage, Comment, Profile, Notification, Report, PasswordResetOTP, PlaceReview
 
 class PostImageInline(admin.TabularInline):
     model = PostImage
@@ -36,4 +36,11 @@ class ReportAdmin(admin.ModelAdmin):
     list_display = ('id', 'reporter', 'post', 'comment', 'reason', 'status', 'created_at')
     list_filter = ('status', 'reason', 'created_at')
     search_fields = ('reporter__username', 'details', 'post__caption', 'comment__content')
+
+@admin.register(PasswordResetOTP)
+class PasswordResetOTPAdmin(admin.ModelAdmin):
+    list_display = ('user', 'email', 'otp_code', 'is_used', 'created_at')
+    list_filter = ('is_used', 'created_at')
+    search_fields = ('user__username', 'email', 'otp_code')
+
 

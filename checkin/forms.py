@@ -316,3 +316,177 @@ class ThaiPasswordChangeForm(forms.Form):
         self.user.set_password(self.cleaned_data['new_password1'])
         self.user.save()
         return self.user
+
+
+class ForgotPasswordRequestForm(forms.Form):
+    """
+    ฟอร์มขอรับรหัส OTP สำหรับรีเซ็ตรหัสผ่าน (ระบุ Username หรือ Email)
+    """
+    identifier = forms.CharField(
+        label="ชื่อผู้ใช้งาน หรือ อีเมล",
+        widget=forms.TextInput(attrs={
+            'placeholder': 'ระบุชื่อผู้ใช้งาน หรือ อีเมลที่ผูกไว้กับบัญชี',
+            'class': 'w-full px-4 py-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 focus:ring-2 focus:ring-white/30 focus:border-zinc-700 outline-none text-xs md:text-sm transition shadow-inner font-medium',
+            'autofocus': 'autofocus'
+        })
+    )
+
+    def clean_identifier(self):
+        from django.contrib.auth.models import User
+        ident = self.cleaned_data.get('identifier', '').strip()
+        if not ident:
+            raise ValidationError('กรุณาระบุชื่อผู้ใช้งานหรืออีเมล')
+        
+        user = None
+        if '@' in ident:
+            user = User.objects.filter(email__iexact=ident).first()
+        if not user:
+            user = User.objects.filter(username__iexact=ident).first()
+
+        if not user:
+            raise ValidationError('ไม่พบบัญชีผู้ใช้งานที่ตรงกับข้อมูลที่ระบุ')
+
+        if not user.email or not user.email.strip():
+            raise ValidationError('บัญชีนี้ยังไม่ได้ระบุอีเมลในระบบ จึงไม่สามารถส่งรหัสรีเซ็ตรหัสผ่านได้ กรุณาติดต่อผู้ดูแลระบบ')
+
+        self.user = user
+        return ident
+
+
+class VerifyOTPOnlyForm(forms.Form):
+    """
+    ฟอร์มขั้นตอนที่ 2: กรอกและตรวจสอบรหัส OTP 6 หลัก
+    """
+    otp_code = forms.CharField(
+        label="รหัสยืนยัน 6 หลัก (OTP)",
+        max_length=6,
+        min_length=6,
+        widget=forms.TextInput(attrs={
+            'placeholder': '••••••',
+            'class': 'w-full px-4 py-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-600 focus:ring-2 focus:ring-white/30 focus:border-zinc-700 outline-none text-center font-mono text-2xl tracking-[0.5em] transition shadow-inner font-black',
+            'maxlength': '6',
+            'autocomplete': 'one-time-code',
+            'autofocus': 'autofocus'
+        })
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_otp_code(self):
+        from .models import PasswordResetOTP
+        code = self.cleaned_data.get('otp_code', '').strip()
+        if len(code) != 6 or not code.isdigit():
+            raise ValidationError('รหัส OTP ต้องเป็นตัวเลข 6 หลัก')
+
+        latest_otp = PasswordResetOTP.objects.filter(
+            user=self.user,
+            is_used=False
+        ).order_by('-created_at').first()
+
+        if not latest_otp:
+            raise ValidationError('ไม่พบรหัสยืนยัน OTP สำหรับบัญชีนี้ กรุณากดขอรหัสใหม่')
+
+        if latest_otp.attempts >= 5:
+            raise ValidationError('คุณกรอกรหัส OTP ผิดเกิน 5 ครั้ง รหัสนี้ถูกยกเลิกเพื่อความปลอดภัย กรุณากดขอรหัสใหม่อีกครั้ง')
+
+        if not latest_otp.is_valid():
+            raise ValidationError('รหัสยืนยัน OTP หมดอายุแล้ว กรุณากดขอรหัสใหม่')
+
+        if latest_otp.otp_code != code:
+            latest_otp.attempts += 1
+            latest_otp.save(update_fields=['attempts'])
+            remaining_attempts = max(0, 5 - latest_otp.attempts)
+            if remaining_attempts > 0:
+                raise ValidationError(f'รหัสยืนยัน OTP ไม่ถูกต้อง (เหลือโอกาสกรอกอีก {remaining_attempts} ครั้ง)')
+            else:
+                raise ValidationError('คุณกรอกรหัส OTP ผิดครบ 5 ครั้งแล้ว รหัสถูกยกเลิก กรุณาขอรหัสใหม่')
+
+        self.otp_record = latest_otp
+        return code
+
+
+
+class SetNewPasswordForm(forms.Form):
+    """
+    ฟอร์มขั้นตอนที่ 3: กำหนดรหัสผ่านใหม่ (หลังจากยืนยัน OTP สำเร็จแล้วเท่านั้น)
+    """
+    new_password1 = forms.CharField(
+        label="รหัสผ่านใหม่",
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร)',
+            'class': 'w-full px-4 py-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 focus:ring-2 focus:ring-white/30 focus:border-zinc-700 outline-none text-xs md:text-sm transition shadow-inner',
+            'autofocus': 'autofocus'
+        })
+    )
+    new_password2 = forms.CharField(
+        label="ยืนยันรหัสผ่านใหม่",
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'ระบุรหัสผ่านใหม่อีกครั้ง',
+            'class': 'w-full px-4 py-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 focus:ring-2 focus:ring-white/30 focus:border-zinc-700 outline-none text-xs md:text-sm transition shadow-inner'
+        })
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_new_password1(self):
+        password = self.cleaned_data.get('new_password1', '')
+        if len(password) < 8:
+            raise ValidationError('รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 8 ตัวอักษร')
+        if password.isdigit():
+            raise ValidationError('รหัสผ่านต้องไม่เป็นตัวเลขเพียงอย่างเดียว')
+        return password
+
+    def clean(self):
+        cleaned_data = super().clean()
+        p1 = cleaned_data.get('new_password1')
+        p2 = cleaned_data.get('new_password2')
+        if p1 and p2 and p1 != p2:
+            self.add_error('new_password2', 'รหัสผ่านใหม่ทั้ง 2 ช่องไม่ตรงกัน')
+        return cleaned_data
+
+    def save(self):
+        self.user.set_password(self.cleaned_data['new_password1'])
+        self.user.save()
+        return self.user
+
+
+
+class DeleteAccountForm(forms.Form):
+    """
+    ฟอร์มสำหรับยืนยันการลบบัญชีผู้ใช้ตนเองถาวร (Danger Zone)
+    """
+    password = forms.CharField(
+        label="รหัสผ่านปัจจุบัน",
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'ระบุรหัสผ่านของคุณเพื่อยืนยัน',
+            'class': 'w-full px-4 py-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 focus:ring-2 focus:ring-rose-500/40 focus:border-rose-700 outline-none text-xs md:text-sm transition shadow-inner font-medium'
+        })
+    )
+    confirmation_text = forms.CharField(
+        label="พิมพ์คำว่า 'ลบบัญชี'",
+        widget=forms.TextInput(attrs={
+            'placeholder': "พิมพ์คำว่า 'ลบบัญชี' เพื่อยืนยัน",
+            'class': 'w-full px-4 py-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 focus:ring-2 focus:ring-rose-500/40 focus:border-rose-700 outline-none text-xs md:text-sm transition shadow-inner font-bold'
+        })
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        if not self.user.check_password(password):
+            raise ValidationError('รหัสผ่านปัจจุบันไม่ถูกต้อง')
+        return password
+
+    def clean_confirmation_text(self):
+        text = self.cleaned_data.get('confirmation_text', '').strip()
+        if text not in ('ลบบัญชี', 'DELETE', 'delete'):
+            raise ValidationError("กรุณาพิมพ์คำว่า 'ลบบัญชี' ให้ถูกต้องเพื่อยืนยัน")
+        return text
+

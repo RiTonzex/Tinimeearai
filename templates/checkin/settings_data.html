@@ -59,6 +59,30 @@
         </div>
     </div>
 
+    <!-- Danger Zone Card: Delete Account -->
+    <div class="space-y-3 pt-2">
+        <div class="flex items-center gap-2 text-sm font-bold text-rose-400 px-1">
+            <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-400"></i>
+            <span>โซนอันตราย (Danger Zone)</span>
+        </div>
+
+        <div class="rounded-[2rem] glass-card border border-rose-500/20 p-6 shadow-2xl space-y-4 bg-rose-950/10">
+            <div class="space-y-1">
+                <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                    <i data-lucide="user-x" class="w-4 h-4 text-rose-400"></i>
+                    <span>ลบบัญชีผู้ใช้งานถาวร</span>
+                </h3>
+                <p class="text-[11px] text-zinc-400 leading-relaxed">
+                    ลบบัญชีผู้ใช้ของคุณ พร้อมข้อมูลโพสต์ รูปภาพ คอมเมนต์ และรอยเท้าการเดินทางทั้งหมดอย่างถาวร (ไม่สามารถกู้คืนได้)
+                </p>
+            </div>
+            <a href="{% url 'delete_account' %}" class="w-full py-3.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 hover:text-white font-bold text-xs transition flex items-center justify-center gap-2 active:scale-95 shadow-md">
+                <i data-lucide="trash-2" class="w-4 h-4 text-rose-400"></i>
+                <span>ดำเนินการขอลบบัญชีของฉัน →</span>
+            </a>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
 
