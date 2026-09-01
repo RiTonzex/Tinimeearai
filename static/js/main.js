@@ -31,7 +31,7 @@ function initCarousels() {
 
         function updateCarousel(index, animate = true) {
             currentIndex = Math.max(0, Math.min(index, total - 1));
-            
+
             if (slidesContainer) {
                 const containerWidth = container.offsetWidth || container.getBoundingClientRect().width;
                 if (!animate) {
@@ -115,6 +115,170 @@ function initCarousels() {
     });
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Initialize Carousels
+    initCarousels();
+
+    // 2. Auto-dismiss Toast Notification Pill at bottom
+    const toastContainer = document.getElementById('system-toast-container');
+    if (toastContainer) {
+        setTimeout(() => {
+            toastContainer.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+            toastContainer.style.opacity = '0';
+            toastContainer.style.transform = 'translate(-50%, 12px)';
+            setTimeout(() => {
+                if (toastContainer && toastContainer.parentNode) {
+                    toastContainer.remove();
+                }
+            }, 350);
+        }, 2400);
+    }
+
+    // 3. Initialize Lucide icons if available
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+    }
+
+    // 4. Universal Optimistic Post Like Handler
+    document.addEventListener('click', async (e) => {
+        const likeBtn = e.target.closest('.btn-like-post');
+        if (!likeBtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const url = likeBtn.dataset.url;
+        if (!url) return;
+
+        const heartIcon = likeBtn.querySelector('svg') || likeBtn.querySelector('i');
+        const countSpan = likeBtn.querySelector('.post-likes-count');
+
+        const isCurrentlyLiked = heartIcon ? (heartIcon.classList.contains('fill-rose-500') || heartIcon.classList.contains('text-rose-500')) : false;
+        let currentCount = countSpan ? (parseInt(countSpan.textContent.replace(/[^0-9]/g, '')) || 0) : 0;
+
+        if (isCurrentlyLiked) {
+            if (heartIcon) {
+                heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
+                heartIcon.classList.add('text-zinc-400');
+            }
+            if (countSpan) {
+                currentCount = Math.max(0, currentCount - 1);
+                countSpan.textContent = currentCount;
+            }
+        } else {
+            if (heartIcon) {
+                heartIcon.classList.add('text-rose-500', 'fill-rose-500');
+                heartIcon.classList.remove('text-zinc-400');
+                heartIcon.style.transform = 'scale(1.35)';
+                setTimeout(() => { heartIcon.style.transform = 'scale(1)'; }, 180);
+            }
+            if (countSpan) {
+                currentCount = currentCount + 1;
+                countSpan.textContent = currentCount;
+            }
+        }
+
+        const csrfToken = getCsrfToken();
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (countSpan && typeof data.total_likes !== 'undefined') {
+                    countSpan.textContent = data.total_likes;
+                }
+                if (heartIcon && typeof data.liked !== 'undefined') {
+                    if (data.liked) {
+                        heartIcon.classList.add('text-rose-500', 'fill-rose-500');
+                        heartIcon.classList.remove('text-zinc-400');
+                    } else {
+                        heartIcon.classList.remove('text-rose-500', 'fill-rose-500');
+                        heartIcon.classList.add('text-zinc-400');
+                    }
+                }
+            } else {
+                console.error('Like request failed with status:', res.status);
+            }
+        } catch (err) {
+            console.error('Like sync error:', err);
+        }
+    });
+
+    // 5. Smooth Page Navigation Loading Indicator
+    let loadingBar = document.getElementById('top-loading-bar');
+    if (!loadingBar) {
+        loadingBar = document.createElement('div');
+        loadingBar.id = 'top-loading-bar';
+        document.body.appendChild(loadingBar);
+    }
+
+    const mainContent = document.getElementById('app-main-content');
+
+    document.querySelectorAll('a[href]').forEach(link => {
+        const href = link.getAttribute('href');
+        if (
+            href &&
+            !href.startsWith('#') &&
+            !href.startsWith('javascript:') &&
+            !href.startsWith('tel:') &&
+            !href.startsWith('mailto:') &&
+            !link.target &&
+            !link.hasAttribute('download')
+        ) {
+            link.addEventListener('click', (e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+                const currentUrl = window.location.pathname + window.location.search;
+                if (href === currentUrl) return;
+
+                loadingBar.style.width = '35%';
+                loadingBar.style.opacity = '1';
+                setTimeout(() => {
+                    if (loadingBar.style.opacity !== '0') {
+                        loadingBar.style.width = '75%';
+                    }
+                }, 100);
+
+                if (mainContent) {
+                    mainContent.classList.remove('page-transition-enter', 'swipe-exit-left', 'swipe-exit-right');
+                    mainContent.classList.add('page-transition-exit');
+                }
+            });
+        }
+    });
+
+    // 6. Pull-to-Refresh Gesture for Mobile
+    initPullToRefresh();
+
+    // 7. Tag Friends & Co-Travelers Component
+    initUserTagPickers();
+
+    window.addEventListener('pageshow', () => {
+        if (mainContent) {
+            mainContent.classList.remove('page-transition-exit', 'swipe-exit-left', 'swipe-exit-right');
+            mainContent.classList.add('page-transition-enter');
+        }
+        if (loadingBar) {
+            loadingBar.style.width = '100%';
+            setTimeout(() => {
+                loadingBar.style.opacity = '0';
+                setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+            }, 150);
+        }
+        initCarousels();
+        initUserTagPickers();
+    });
+});
+
+/**
+ * Modern 60fps Pull-to-Refresh Gesture
+ */
+>>>>>>> origin/feature/travel-footprint-gamificationอ
 function initPullToRefresh() {
     let startY = 0;
     let currentY = 0;
@@ -154,7 +318,7 @@ function initPullToRefresh() {
         if (diff > 0 && window.scrollY === 0) {
             const pullDistance = Math.min(diff * 0.45, 90);
             const progress = Math.min(pullDistance / threshold, 1);
-            
+
             ptr.style.opacity = progress.toString();
             ptr.style.transform = `translate(-50%, ${pullDistance - 10}px) scale(${0.75 + progress * 0.25})`;
             if (icon) {
@@ -176,7 +340,7 @@ function initPullToRefresh() {
             if (icon) {
                 icon.classList.add('animate-spin');
             }
-            
+
             if (navigator.vibrate) {
                 navigator.vibrate(15);
             }
@@ -268,9 +432,190 @@ function initBookmarkButtons() {
 
             const postId = this.dataset.postId;
             openBookmarkModal(postId);
+=======
+window.initPullToRefresh = initPullToRefresh;
+window.initCarousels = initCarousels;
+
+/**
+ * Interactive @username Co-Travelers Tag Picker & Autocomplete Handler
+ */
+function initUserTagPickers() {
+    const box = document.getElementById('tag-friends-box');
+    if (!box || box.dataset.tagPickerInit) return;
+    box.dataset.tagPickerInit = 'true';
+
+    const input = document.getElementById('tag-user-input');
+    const dropdown = document.getElementById('user-autocomplete-dropdown');
+    const chipsContainer = document.getElementById('tagged-users-chips');
+    const hiddenContainer = document.getElementById('tagged-user-inputs-hidden');
+    const countBadge = document.getElementById('tagged-users-count');
+
+    if (!input || !dropdown || !chipsContainer || !hiddenContainer) return;
+
+    let selectedUsers = new Map(); // id -> { id, username, display_name, avatar_url }
+    let debounceTimer = null;
+
+    function updateChipsDisplay() {
+        chipsContainer.innerHTML = '';
+        hiddenContainer.innerHTML = '';
+
+        const count = selectedUsers.size;
+        if (countBadge) {
+            countBadge.textContent = `${count}/10 คน`;
+            if (count >= 10) {
+                countBadge.classList.add('text-amber-400');
+            } else {
+                countBadge.classList.remove('text-amber-400');
+            }
+        }
+
+        selectedUsers.forEach((user, id) => {
+            const chip = document.createElement('div');
+            chip.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-semibold text-white shadow-sm';
+
+            const avatarHtml = user.avatar_url
+                ? `<img src="${user.avatar_url}" class="w-4 h-4 rounded-full object-cover">`
+                : `<div class="w-4 h-4 rounded-full bg-zinc-800 text-[9px] font-bold flex items-center justify-center text-amber-400">${(user.username || 'U')[0].toUpperCase()}</div>`;
+
+            chip.innerHTML = `
+                ${avatarHtml}
+                <span class="text-amber-400">@${user.username}</span>
+                <button type="button" class="text-zinc-500 hover:text-white transition font-bold text-xs ml-0.5" data-remove-id="${id}">&times;</button>
+            `;
+
+            chip.querySelector('button').addEventListener('click', (e) => {
+                e.preventDefault();
+                selectedUsers.delete(id);
+                updateChipsDisplay();
+            });
+
+            chipsContainer.appendChild(chip);
+
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'tagged_user_ids';
+            hidden.value = id;
+            hiddenContainer.appendChild(hidden);
         });
+    }
+
+    // Preload initial hidden inputs (from edit_post)
+    hiddenContainer.querySelectorAll('input[data-user-id]').forEach(inputEl => {
+        const id = parseInt(inputEl.dataset.userId);
+        const username = inputEl.dataset.username || inputEl.value;
+        if (id) {
+            selectedUsers.set(id, { id, username, display_name: username, avatar_url: null });
+        }
+    });
+    updateChipsDisplay();
+
+    async function performSearch() {
+        const query = input.value.trim();
+        try {
+            const res = await fetch(`/api/users/search/?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+
+            if (data.status === 'ok' && data.users && data.users.length > 0) {
+                dropdown.innerHTML = '';
+                let addedCount = 0;
+                data.users.forEach(u => {
+                    if (selectedUsers.has(u.id)) return;
+                    addedCount++;
+
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = 'w-full flex items-center justify-between p-2 rounded-xl hover:bg-zinc-900 transition text-left text-xs';
+
+                    const avatarHtml = u.avatar_url
+                        ? `<img src="${u.avatar_url}" class="w-6 h-6 rounded-lg object-cover bg-zinc-800">`
+                        : `<div class="w-6 h-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-bold text-amber-400">${u.username[0].toUpperCase()}</div>`;
+
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2 min-w-0">
+                            ${avatarHtml}
+                            <div class="min-w-0">
+                                <span class="block font-bold text-white truncate">${u.display_name}</span>
+                                <span class="block text-[10px] text-amber-400 font-mono">@${u.username}</span>
+                            </div>
+                        </div>
+                        ${u.is_followed ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">กำลังติดตาม</span>' : ''}
+                    `;
+
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (selectedUsers.size >= 10) {
+                            if (typeof showSystemToast === 'function') {
+                                showSystemToast('แท็กผู้ร่วมทริปได้สูงสุด 10 คนเท่านั้น', 'error');
+                            }
+                            return;
+                        }
+                        selectedUsers.set(u.id, u);
+                        updateChipsDisplay();
+                        input.value = '';
+                        dropdown.classList.add('hidden');
+                    });
+
+                    dropdown.appendChild(item);
+                });
+
+                if (addedCount > 0) {
+                    dropdown.classList.remove('hidden');
+                } else {
+                    dropdown.innerHTML = '<div class="p-3 text-center text-xs text-zinc-500 font-mono">เลือกผู้ใช้ครบถ้วนแล้ว</div>';
+                    dropdown.classList.remove('hidden');
+                }
+            } else {
+                dropdown.innerHTML = '<div class="p-3 text-center text-xs text-zinc-500 font-mono">ไม่พบผู้ใช้ที่ตรงกัน</div>';
+                dropdown.classList.remove('hidden');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    input.addEventListener('focus', function () {
+        performSearch();
+    });
+
+    input.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            performSearch();
+        }, 200);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!box.contains(e.target)) {
+            dropdown.classList.add('hidden');
+        }
     });
 }
+window.initUserTagPickers = initUserTagPickers;
+
+/**
+ * Universal Map Tile Provider based on user preference
+ * Defaults to Carto Dark Matter
+ */
+window.getMapTileLayer = function () {
+    const style = localStorage.getItem('map_style') || 'dark';
+    if (style === 'satellite') {
+        return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri',
+            maxZoom: 18
+        });
+    } else if (style === 'standard') {
+        return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap &copy; Contributors',
+            maxZoom: 19
+        });
+    } else {
+        return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            className: 'dark-map-tiles',
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+        });
+    }
+};
 window.initBookmarkButtons = initBookmarkButtons;
 
 async function openBookmarkModal(postId) {
@@ -460,6 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initStarPickers();
     initPlaceReviewForm();
+    initUserTagPickers();
 });
 
 /**

@@ -73,7 +73,23 @@ class Post(models.Model):
         verbose_name="ผู้กดถูกใจ"
     )
     
-    views_count = models.PositiveIntegerField(default=0, verbose_name="จำนวนการเข้าชม")
+    # ผู้ใช้งานร่วมทริปที่ถูกแท็กในโพสต์
+    tagged_users = models.ManyToManyField(
+        User,
+        related_name='tagged_posts',
+        blank=True,
+        verbose_name="ผู้ร่วมทริปที่ถูกแท็ก"
+    )
+
+    province = models.ForeignKey(
+        'Province',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='posts',
+        verbose_name="จังหวัด"
+    )
+
     is_hidden = models.BooleanField(default=False, verbose_name="ซ่อนโพสต์")
     avg_rating = models.DecimalField(
         max_digits=3,
@@ -85,6 +101,7 @@ class Post(models.Model):
         default=0,
         verbose_name="จำนวนรีวิวทั้งหมด"
     )
+    views_count = models.PositiveIntegerField(default=0, verbose_name="จำนวนการเข้าชม")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="แก้ไขล่าสุด")
 
@@ -129,6 +146,11 @@ class Post(models.Model):
     @property
     def total_comments(self):
         return self.comments.count()
+
+    @property
+    def extra_tagged_count(self):
+        cnt = self.tagged_users.count()
+        return cnt - 2 if cnt > 2 else 0
 
     @property
     def has_multiple_images(self):
@@ -440,15 +462,85 @@ class Follow(models.Model):
         return f"@{self.follower.username} follows @{self.following.username}"
 
 
+
+# -----------------------------------------------------------------------------
+# Gamification Models (Province, Badge, UserBadge)
+# -----------------------------------------------------------------------------
+class Province(models.Model):
+    """
+    Lookup table เก็บข้อมูล 77 จังหวัดของประเทศไทย
+    """
+    name_th = models.CharField(max_length=100, unique=True, verbose_name="ชื่อจังหวัด (ไทย)")
+    name_en = models.CharField(max_length=100, unique=True, verbose_name="ชื่อจังหวัด (อังกฤษ)")
+    svg_id = models.CharField(max_length=50, unique=True, verbose_name="SVG Element ID")
+    region = models.CharField(max_length=50, blank=True, null=True, verbose_name="ภูมิภาค")
+
+    class Meta:
+        ordering = ['name_th']
+        verbose_name = "จังหวัด"
+        verbose_name_plural = "จังหวัดทั้งหมด"
+
+    def __str__(self):
+        return f"{self.name_th} ({self.name_en})"
+
+
+class Badge(models.Model):
+    """
+    Model สำหรับเก็บข้อมูลเหรียญรางวัล Gamification
+    """
+    CRITERIA_TYPES = [
+        ('PROVINCE_COUNT', 'จำนวนจังหวัดที่พิชิต'),
+        ('TAG_COUNT', 'จำนวนโพสต์ในหมวดหมู่/แท็ก'),
+        ('TIME_RANGE', 'ช่วงเวลาโพสต์ (เช้า/ดึก)'),
+        ('POST_COUNT', 'จำนวนโพสต์รวม'),
+    ]
+
+    code = models.CharField(max_length=50, unique=True, verbose_name="รหัสเหรียญ")
+    name = models.CharField(max_length=100, verbose_name="ชื่อเหรียญรางวัล")
+    description = models.TextField(verbose_name="คำอธิบายเงื่อนไข")
+    icon = models.CharField(max_length=255, verbose_name="ไอคอน/สัญลักษณ์")
+    criteria_type = models.CharField(max_length=50, choices=CRITERIA_TYPES, verbose_name="ประเภทเงื่อนไข")
+    criteria_config = models.JSONField(default=dict, blank=True, verbose_name="การตั้งค่าเงื่อนไข (JSON)")
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = "เหรียญรางวัล"
+        verbose_name_plural = "เหรียญรางวัลทั้งหมด"
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class UserBadge(models.Model):
+    """
+    Model สำหรับเก็บเหรียญรางวัลที่ผู้ใช้ได้รับแล้ว
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='badges', verbose_name="ผู้ได้รับเหรียญ")
+    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name='awarded_to', verbose_name="เหรียญรางวัล")
+    awarded_at = models.DateTimeField(auto_now_add=True, verbose_name="วันที่ได้รับ")
+    related_post = models.ForeignKey(Post, on_delete=models.SET_NULL, null=True, blank=True, related_name='triggered_badges', verbose_name="โพสต์ที่จุดชนวน")
+
+    class Meta:
+        ordering = ['-awarded_at']
+        unique_together = ('user', 'badge')
+        verbose_name = "เหรียญรางวัลของผู้ใช้"
+        verbose_name_plural = "เหรียญรางวัลของผู้ใช้ทั้งหมด"
+
+    def __str__(self):
+        return f"@{self.user.username} - {self.badge.name}"
+
+
 class Notification(models.Model):
     """
-    Model สำหรับเก็บการแจ้งเตือนต่างๆ (กดไลก์โพสต์, กดไลก์คอมเมนต์, แสดงความคิดเห็น, การติดตาม)
+    Model สำหรับเก็บการแจ้งเตือนต่างๆ (กดไลก์โพสต์, กดไลก์คอมเมนต์, แสดงความคิดเห็น, การติดตาม, ปลดล็อกเหรียญ)
     """
     VERB_CHOICES = [
         ('like_post', 'ถูกใจโพสต์'),
         ('like_comment', 'ถูกใจความคิดเห็น'),
         ('comment_post', 'แสดงความคิดเห็น'),
         ('follow_user', 'เริ่มติดตามคุณ'),
+        ('post_tagged', 'แท็กคุณในโพสต์ทริป'),
+        ('badge_unlocked', 'ปลดล็อกเหรียญรางวัล'),
     ]
 
     recipient = models.ForeignKey(
@@ -530,6 +622,11 @@ class Notification(models.Model):
             return f"{actor_name} ถูกใจความคิดเห็นของคุณ{text}"
         elif self.verb == 'follow_user':
             return f"{actor_name} เริ่มติดตามคุณ"
+        elif self.verb == 'post_tagged':
+            loc = f" '{self.post.location_name}'" if self.post and self.post.location_name else ""
+            return f"{actor_name} แท็กคุณในโพสต์ทริป{loc}"
+        elif self.verb == 'badge_unlocked':
+            return f"🎉 ยินดีด้วย! คุณได้รับการปลดล็อกเหรียญรางวัลใหม่"
         return f"{actor_name} มีการเคลื่อนไหวใหม่"
 
 

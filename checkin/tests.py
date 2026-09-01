@@ -1,10 +1,45 @@
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.urls import reverse
-from checkin.models import Post
+from checkin.models import Post, Province, Badge
 
 class CheckinAppTests(TestCase):
     def setUp(self):
+        # Seed essential test provinces and badges
+        Province.objects.get_or_create(
+            name_th='ภูเก็ต',
+            defaults={'name_en': 'Phuket', 'svg_id': 'TH-83', 'region': 'ภาคใต้'}
+        )
+        Province.objects.get_or_create(
+            name_th='เชียงใหม่',
+            defaults={'name_en': 'Chiang Mai', 'svg_id': 'TH-50', 'region': 'ภาคเหนือ'}
+        )
+        Province.objects.get_or_create(
+            name_th='กรุงเทพมหานคร',
+            defaults={'name_en': 'Bangkok', 'svg_id': 'TH-10', 'region': 'ภาคกลาง'}
+        )
+
+        Badge.objects.get_or_create(
+            code='first_checkin',
+            defaults={
+                'name': 'ก้าวแรกสู่นักเดินทาง',
+                'description': 'โพสต์เช็คอินครั้งแรก',
+                'icon': '🎯',
+                'criteria_type': 'POST_COUNT',
+                'criteria_config': {'min_count': 1}
+            }
+        )
+        Badge.objects.get_or_create(
+            code='cafe_hopper',
+            defaults={
+                'name': 'Cafe Hopper',
+                'description': 'เช็คอินคาเฟ่ครบ 2 ครั้ง',
+                'icon': '☕',
+                'criteria_type': 'TAG_COUNT',
+                'criteria_config': {'tag': 'คาเฟ่', 'min_count': 2}
+            }
+        )
+
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='password123')
         self.post = Post.objects.create(
@@ -441,5 +476,141 @@ class CheckinAppTests(TestCase):
         posts_in_context = response.context['posts']
         self.assertEqual(posts_in_context[0].pk, self.post.pk)
         self.assertEqual(posts_in_context[1].pk, post2.pk)
+
+    def test_user_search_api(self):
+        friend = User.objects.create_user(username='friend_user', password='password123')
+        self.client.login(username='testuser', password='password123')
+        
+        response = self.client.get(reverse('user_search_api') + '?q=friend')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(len(data['users']), 1)
+        self.assertEqual(data['users'][0]['username'], 'friend_user')
+
+    from unittest.mock import patch
+
+    @patch('cloudinary.uploader.upload_resource', return_value='tinimeearai_posts/test.jpg')
+    def test_create_post_with_tagged_users_and_notifications(self, mock_upload):
+        from checkin.models import Notification
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        friend1 = User.objects.create_user(username='friend1', password='password123')
+        friend2 = User.objects.create_user(username='friend2', password='password123')
+        self.client.login(username='testuser', password='password123')
+
+        small_png = (
+            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4'
+            b'\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x03\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82'
+        )
+        img = SimpleUploadedFile("test_tag.png", small_png, content_type="image/png")
+
+        response = self.client.post(reverse('create_post'), {
+            'location_name': 'เกาะพีพี',
+            'caption': 'ทริปดำน้ำสุดฟินกับแก๊งเพื่อน',
+            'image': img,
+            'tagged_user_ids': [friend1.id, friend2.id]
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        new_post = Post.objects.filter(location_name='เกาะพีพี').first()
+        self.assertIsNotNone(new_post)
+        self.assertEqual(new_post.tagged_users.count(), 2)
+        self.assertTrue(new_post.tagged_users.filter(id=friend1.id).exists())
+
+        # Check notifications generated for friend1 and friend2
+        self.assertTrue(Notification.objects.filter(recipient=friend1, verb='post_tagged', actor=self.user, post=new_post).exists())
+        self.assertTrue(Notification.objects.filter(recipient=friend2, verb='post_tagged', actor=self.user, post=new_post).exists())
+
+    def test_edit_post_tagged_users_diff_notifications(self):
+        from checkin.models import Notification
+        friend1 = User.objects.create_user(username='friend_a', password='password123')
+        friend2 = User.objects.create_user(username='friend_b', password='password123')
+        self.post.tagged_users.add(friend1)
+        
+        self.client.login(username='testuser', password='password123')
+
+        # Edit post, keep friend1, add friend2
+        response = self.client.post(reverse('post_edit', kwargs={'pk': self.post.pk}), {
+            'location_name': self.post.location_name,
+            'caption': 'แก้ไขข้อความเพิ่มเติม',
+            'tagged_user_ids': [friend1.id, friend2.id]
+        })
+        self.assertEqual(response.status_code, 302)
+
+        # friend2 should get notification, but friend1 should NOT get a new duplicate notification
+        self.assertFalse(Notification.objects.filter(recipient=friend1, verb='post_tagged', post=self.post).exists())
+        self.assertTrue(Notification.objects.filter(recipient=friend2, verb='post_tagged', post=self.post).exists())
+
+    def test_profile_tagged_posts_query(self):
+        friend = User.objects.create_user(username='tagged_friend', password='password123')
+        self.post.tagged_users.add(friend)
+
+        self.client.login(username='tagged_friend', password='password123')
+        response = self.client.get(reverse('user_profile', kwargs={'username': 'tagged_friend'}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ถูกแท็ก (1)')
+
+    def test_user_footprint_api(self):
+        from checkin.models import Province
+        prov_phuket = Province.objects.filter(svg_id='TH-83').first()
+        if prov_phuket:
+            self.post.province = prov_phuket
+            self.post.save()
+
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('user_footprint_api', kwargs={'username': 'testuser'}))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertIn('TH-83', data['visited'])
+        self.assertEqual(data['visited_count'], 1)
+
+    def test_badge_evaluation_and_unlock(self):
+        from checkin.models import Badge, UserBadge, Notification
+        from checkin.views import evaluate_badges_for_user
+
+        # Create sample post for Cafe Hopper & First Step
+        Post.objects.create(
+            user=self.user,
+            location_name='คาเฟ่ อเมซอน เชียงใหม่',
+            caption='จิบกาแฟสดบรรยากาศธรรมชาติ #คาเฟ่',
+            tags='คาเฟ่, ธรรมชาติ',
+            image='tinimeearai_posts/test.jpg'
+        )
+        Post.objects.create(
+            user=self.user,
+            location_name='Starbucks คาเฟ่ กรุงเทพ',
+            caption='คาเฟ่สวยงาม #คาเฟ่',
+            tags='คาเฟ่',
+            image='tinimeearai_posts/test.jpg'
+        )
+
+        unlocked = evaluate_badges_for_user(self.user)
+        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__code='first_checkin').exists())
+        self.assertTrue(UserBadge.objects.filter(user=self.user, badge__code='cafe_hopper').exists())
+        self.assertTrue(Notification.objects.filter(recipient=self.user, verb='badge_unlocked').exists())
+
+    def test_duplicate_badge_prevention(self):
+        from checkin.models import Badge, UserBadge
+        from checkin.views import evaluate_badges_for_user
+
+        evaluate_badges_for_user(self.user)
+        initial_badge_count = UserBadge.objects.filter(user=self.user).count()
+
+        # Re-evaluate
+        evaluate_badges_for_user(self.user)
+        self.assertEqual(UserBadge.objects.filter(user=self.user).count(), initial_badge_count)
+
+    def test_user_badges_api(self):
+        from checkin.views import evaluate_badges_for_user
+        evaluate_badges_for_user(self.user)
+
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('user_badges_api', kwargs={'username': 'testuser'}))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertTrue(data['unlocked_count'] >= 1)
+        self.assertTrue(len(data['badges']) >= 1)
 
 

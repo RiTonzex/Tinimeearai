@@ -141,8 +141,19 @@
                     </h2>
                     <p class="text-[11px] text-zinc-400 flex items-center gap-1.5 mt-0.5 truncate">
                         <span class="font-mono text-zinc-400 font-medium">@{{ post.user.username }}</span>
-                        <span class="text-zinc-600">•</span>
-                        <span class="text-zinc-400 font-medium">{{ post.created_at|timesince }} ที่แล้ว</span>
+                        {% if post.tagged_users.exists %}
+                            <span class="text-zinc-600">•</span>
+                            <span class="inline-flex items-center gap-1 text-amber-400/90 font-medium truncate">
+                                <i data-lucide="users" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+                                <span>ร่วมทริปกับ</span>
+                                {% for t_user in post.tagged_users.all %}
+                                    <a href="{% url 'user_profile' username=t_user.username %}" class="text-white hover:text-amber-400 font-bold hover:underline">@{{ t_user.username }}</a>{% if not forloop.last %},{% endif %}
+                                {% endfor %}
+                            </span>
+                        {% else %}
+                            <span class="text-zinc-600">•</span>
+                            <span class="text-zinc-400 font-medium">{{ post.created_at|timesince }} ที่แล้ว</span>
+                        {% endif %}
                     </p>
                 </div>
             </a>
