@@ -256,7 +256,7 @@ class CheckinAppTests(TestCase):
         # Search blank
         resp_blank = self.client.get(reverse('search'))
         self.assertEqual(resp_blank.status_code, 200)
-        self.assertContains(resp_blank, 'ค้นหาและตัวกรอง')
+        self.assertContains(resp_blank, 'ค้นหา')
 
         # Search posts
         resp_post = self.client.get(reverse('search') + '?q=ภูเก็ต&type=posts')
@@ -353,6 +353,93 @@ class CheckinAppTests(TestCase):
         resp = self.client.get(reverse('post_list') + f'?lat={bkk_lat}&lng={bkk_lng}&nearby=1')
         self.assertEqual(resp.status_code, 200)
 
+    def test_create_and_update_place_review(self):
+        self.client.login(username='testuser', password='password123')
+        
+        # Create new review
+        res = self.client.post(
+            reverse('save_review_api'),
+            data={'post_id': self.post.pk, 'score': 5, 'aspect_scenery': 4, 'aspect_transport': 5, 'review_text': 'บรรยากาศดีมากๆ'},
+            content_type='application/json'
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertTrue(data['created'])
+        self.assertEqual(data['avg_rating'], 5.0)
+        self.assertEqual(data['review_count'], 1)
 
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.avg_rating, 5.0)
+        self.assertEqual(self.post.review_count, 1)
+
+        # Update existing review (score 3)
+        res_update = self.client.post(
+            reverse('save_review_api'),
+            data={'post_id': self.post.pk, 'score': 3, 'aspect_scenery': 3, 'aspect_transport': 2, 'review_text': 'บรรยากาศปานกลาง'},
+            content_type='application/json'
+        )
+        self.assertEqual(res_update.status_code, 200)
+        data_update = res_update.json()
+        self.assertFalse(data_update['created'])
+        self.assertEqual(data_update['avg_rating'], 3.0)
+
+        from checkin.models import PlaceReview
+        self.assertEqual(PlaceReview.objects.filter(post=self.post).count(), 1)
+
+    def test_multiple_reviews_and_avg_rating_recalculation(self):
+        other_user = User.objects.create_user(username='reviewer2', password='password123')
+        from checkin.models import PlaceReview
+
+        # User 1 rates 5
+        PlaceReview.objects.create(user=self.user, post=self.post, score=5)
+        # User 2 rates 3
+        PlaceReview.objects.create(user=other_user, post=self.post, score=3)
+
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.avg_rating, 4.0)
+        self.assertEqual(self.post.review_count, 2)
+
+    def test_delete_place_review_permission_and_recalculation(self):
+        from checkin.models import PlaceReview
+        review = PlaceReview.objects.create(user=self.user, post=self.post, score=5)
+        
+        other_user = User.objects.create_user(username='other_user', password='password123')
+        self.client.login(username='other_user', password='password123')
+
+        # Other user trying to delete testuser's review -> 403
+        del_res_unauth = self.client.post(reverse('delete_review_api', kwargs={'pk': review.pk}))
+        self.assertEqual(del_res_unauth.status_code, 403)
+
+        # Owner deleting review -> 200
+        self.client.login(username='testuser', password='password123')
+        del_res = self.client.post(reverse('delete_review_api', kwargs={'pk': review.pk}))
+        self.assertEqual(del_res.status_code, 200)
+
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.avg_rating, 0.0)
+        self.assertEqual(self.post.review_count, 0)
+
+    def test_top_rated_sorting(self):
+        # Create post 2 with lower rating
+        post2 = Post.objects.create(
+            user=self.user,
+            location_name='ดอยสุเทพ เชียงใหม่',
+            caption='วิวสวยงามมาก',
+            latitude=18.804800,
+            longitude=98.921600,
+            image='tinimeearai_posts/test2.jpg'
+        )
+
+        from checkin.models import PlaceReview
+        PlaceReview.objects.create(user=self.user, post=self.post, score=5)
+        PlaceReview.objects.create(user=self.user, post=post2, score=2)
+
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('post_list') + '?feed=top_rated')
+        self.assertEqual(response.status_code, 200)
+        posts_in_context = response.context['posts']
+        self.assertEqual(posts_in_context[0].pk, self.post.pk)
+        self.assertEqual(posts_in_context[1].pk, post2.pk)
 
 

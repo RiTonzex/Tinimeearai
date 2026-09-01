@@ -265,24 +265,33 @@
                         <a href="{% url 'post_detail' pk=post.pk %}" class="block relative aspect-[16/10] bg-black overflow-hidden">
                             <img src="{{ post.get_image_url }}" alt="{{ post.location_name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                             
-                        <!-- Location, Distance & Weather Overlay Badges -->
-                        <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-                            {% if post.location_name %}
-                                <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
-                                    <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-400"></i>
-                                    <span>{{ post.location_name }}</span>
-                                    {% if post.distance_km is not None %}
-                                        <span class="text-[11px] text-emerald-400 font-extrabold ml-1 border-l border-white/20 pl-1.5">📍 {{ post.distance_km }} กม.</span>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
+                            <!-- Star Rating Overlay Badge Top Left on Photo -->
+                            <div class="absolute top-3 left-3 z-30 flex items-center gap-1 px-2.5 py-1 rounded-xl bg-black/80 backdrop-blur-md border border-amber-500/40 text-amber-400 font-extrabold text-xs shadow-2xl pointer-events-none">
+                                <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400 text-amber-400"></i>
+                                <span class="text-white font-mono">{{ post.avg_rating|floatformat:1 }}</span>
+                                {% if post.review_count > 0 %}
+                                    <span class="text-[10px] text-zinc-400 font-normal font-mono">({{ post.review_count }})</span>
+                                {% endif %}
+                            </div>
 
-                            {% if post.weather %}
-                                <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-amber-500/30 text-amber-300 text-xs font-extrabold flex items-center gap-1.5 shadow-xl">
-                                    <span>{{ post.weather.display }}</span>
-                                </div>
-                            {% endif %}
-                        </div>
+                            <!-- Location, Distance & Weather Overlay Badges -->
+                            <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                                {% if post.location_name %}
+                                    <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
+                                        <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-400"></i>
+                                        <span>{{ post.location_name }}</span>
+                                        {% if post.distance_km is not None %}
+                                            <span class="text-[11px] text-emerald-400 font-extrabold ml-1 border-l border-white/20 pl-1.5">📍 {{ post.distance_km }} กม.</span>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+
+                                {% if post.weather %}
+                                    <div class="px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-amber-500/30 text-amber-300 text-xs font-extrabold flex items-center gap-1.5 shadow-xl">
+                                        <span>{{ post.weather.display }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
                         </a>
 
                         <div class="p-5 space-y-3">

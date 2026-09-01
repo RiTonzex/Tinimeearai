@@ -2,6 +2,10 @@ from django.db import models
 from django.contrib.auth.models import User
 from cloudinary.models import CloudinaryField
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models import Avg, Count, F
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 import os
 
 class Post(models.Model):
@@ -71,6 +75,16 @@ class Post(models.Model):
     
     views_count = models.PositiveIntegerField(default=0, verbose_name="จำนวนการเข้าชม")
     is_hidden = models.BooleanField(default=False, verbose_name="ซ่อนโพสต์")
+    avg_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="คะแนนรีวิวเฉลี่ย"
+    )
+    review_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="จำนวนรีวิวทั้งหมด"
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="แก้ไขล่าสุด")
 
@@ -83,6 +97,20 @@ class Post(models.Model):
         user_str = self.user.username if self.user else "Anonymous"
         loc_str = self.location_name or (f"พิกัด ({self.latitude}, {self.longitude})" if self.latitude else "ไม่มีพิกัด")
         return f"{user_str} @ {loc_str} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+    def update_rating_stats(self):
+        """
+        อัปเดตคะแนนเฉลี่ย avg_rating และ review_count บน Post
+        """
+        stats = self.reviews.aggregate(
+            avg_score=Avg('score'),
+            count=Count('id')
+        )
+        avg = stats['avg_score'] or 0.00
+        count = stats['count'] or 0
+        self.avg_rating = round(avg, 2)
+        self.review_count = count
+        self.save(update_fields=['avg_rating', 'review_count'])
 
     @property
     def has_coordinates(self):
@@ -594,3 +622,75 @@ class Report(models.Model):
         item_str = f"โพสต์ #{self.post_id}" if self.post else (f"ความคิดเห็น #{self.comment_id}" if self.comment else "รายการ")
         return f"รายงาน {item_str} โดย @{self.reporter.username} [{self.get_status_display()}]"
 
+
+SCORE_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+class PlaceReview(models.Model):
+    """
+    Model สำหรับเก็บข้อมูลการรีวิวและให้คะแนนสถานที่ (1-5 ดาว)
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='place_reviews',
+        verbose_name="ผู้เขียนรีวิว"
+    )
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+        verbose_name="โพสต์/สถานที่ที่ถูกรีวิว"
+    )
+    score = models.PositiveSmallIntegerField(
+        choices=SCORE_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        verbose_name="คะแนนรวม (1-5 ดาว)"
+    )
+    aspect_scenery = models.PositiveSmallIntegerField(
+        choices=SCORE_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        null=True,
+        blank=True,
+        verbose_name="คะแนนด้านบรรยากาศ/วิว"
+    )
+    aspect_transport = models.PositiveSmallIntegerField(
+        choices=SCORE_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        null=True,
+        blank=True,
+        verbose_name="คะแนนด้านความสะดวกในการเดินทาง"
+    )
+    review_text = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="ข้อความรีวิว"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="สร้างเมื่อ"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="แก้ไขล่าสุด"
+    )
+
+    class Meta:
+        unique_together = ('user', 'post')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['post']),
+        ]
+        verbose_name = "รีวิวสถานที่"
+        verbose_name_plural = "รีวิวสถานที่ทั้งหมด"
+
+    def __str__(self):
+        return f"{self.user.username} rated {self.score}★ on Post #{self.post_id}"
+
+
+@receiver(post_save, sender=PlaceReview)
+@receiver(post_delete, sender=PlaceReview)
+def update_post_review_stats(sender, instance, **kwargs):
+    if instance.post_id:
+        post = Post.objects.filter(pk=instance.post_id).first()
+        if post:
+            post.update_rating_stats()

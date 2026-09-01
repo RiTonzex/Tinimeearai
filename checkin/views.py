@@ -1,3 +1,4 @@
+import json
 import os
 import urllib.parse
 import requests
@@ -12,7 +13,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.db.models import Count, Q, F
 from django.http import JsonResponse, HttpResponseForbidden
-from .models import Post, PostImage, Comment, Follow, Notification, Profile, Report
+from .models import Post, PostImage, Comment, Follow, Notification, Profile, Report, PlaceReview
 from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm
 from .utils import calculate_haversine_distance, get_live_weather
 
@@ -36,7 +37,7 @@ def post_list(request):
     query = request.GET.get('q', '').strip()
     has_geo = request.GET.get('has_geo')
     feed_tab = request.GET.get('feed', 'smart')
-    if feed_tab not in ('smart', 'following', 'explore'):
+    if feed_tab not in ('smart', 'following', 'explore', 'top_rated'):
         feed_tab = 'smart'
 
     posts_qs = Post.objects.filter(is_hidden=False, user__profile__is_banned=False).select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images')
@@ -59,6 +60,9 @@ def post_list(request):
     elif feed_tab == 'explore':
         # เรียงตามเวลาล่าสุดทั้งหมด
         posts = list(posts_qs.order_by('-created_at'))
+    elif feed_tab == 'top_rated' or request.GET.get('sort') == 'top_rated':
+        # เรียงตามคะแนนรีวิวสูงสุด (Top Rated)
+        posts = list(posts_qs.order_by('-avg_rating', '-review_count', '-created_at'))
     else:
         # ฟีดอัจฉริยะ (Smart AI Feed Ranking)
         # โพสต์ของคนที่ Follow จะได้คะแนน Boost มหาศาล (+1000) ทำให้ขึ้นนำเสมอ
@@ -181,6 +185,13 @@ def post_detail(request, pk):
         except Exception:
             pass
 
+    user_review = None
+    if request.user.is_authenticated:
+        from .models import PlaceReview
+        user_review = PlaceReview.objects.filter(user=request.user, post=post).first()
+
+    reviews = post.reviews.select_related('user', 'user__profile').all()
+
     comments = post.comments.select_related('user', 'user__profile').all()
     comment_form = CommentForm()
 
@@ -204,6 +215,8 @@ def post_detail(request, pk):
         'is_bookmarked': is_bookmarked,
         'comments': comments,
         'comment_form': comment_form,
+        'user_review': user_review,
+        'reviews': reviews,
     }
     return render(request, 'checkin/post_detail.html', context)
 
@@ -873,7 +886,7 @@ def search_view(request):
     date_range = request.GET.get('date_range', 'all')
     start_date_str = request.GET.get('start_date', '').strip()
     end_date_str = request.GET.get('end_date', '').strip()
-    sort_by = request.GET.get('sort_by', 'newest')
+    sort_by = request.GET.get('sort_by') or request.GET.get('sort') or 'newest'
 
     posts_qs = Post.objects.all()
     if hasattr(Post, 'is_hidden'):
@@ -966,6 +979,8 @@ def search_view(request):
         posts_qs = posts_qs.order_by('-views_count', '-created_at')
     elif sort_by == 'comments':
         posts_qs = posts_qs.annotate(num_comments=Count('comments')).order_by('-num_comments', '-created_at')
+    elif sort_by in ('rating', 'top_rated'):
+        posts_qs = posts_qs.order_by('-avg_rating', '-review_count', '-created_at')
     else:  # newest
         posts_qs = posts_qs.order_by('-created_at')
 
@@ -1003,6 +1018,7 @@ def search_view(request):
     context = {
         'query': query,
         'search_type': search_type,
+        'sort': sort_by,
         'post_results': post_results,
         'account_results': account_results,
         'user_bookmarked_post_ids': user_bookmarked_post_ids,
@@ -1366,4 +1382,145 @@ def admin_toggle_ban_user(request, user_id):
     messages.success(request, msg)
     return redirect('admin_dashboard')
 
+
+# -----------------------------------------------------------------------------
+# Place Rating & Review APIs
+# -----------------------------------------------------------------------------
+@login_required(login_url='login')
+@require_POST
+def save_review_api(request):
+    """
+    API สำหรับสร้างหรือแก้ไขรีวิวสถานที่ (1-5 ดาว)
+    """
+    try:
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+        else:
+            data = request.POST
+
+        post_id = data.get('post_id')
+        score = data.get('score')
+        aspect_scenery = data.get('aspect_scenery')
+        aspect_transport = data.get('aspect_transport')
+        review_text = data.get('review_text', '').strip() if data.get('review_text') else None
+
+        if not post_id:
+            return JsonResponse({'status': 'error', 'message': 'กรุณาระบุ post_id'}, status=400)
+
+        post = get_object_or_404(Post, pk=post_id)
+
+        try:
+            score = int(score)
+            if score < 1 or score > 5:
+                return JsonResponse({'status': 'error', 'message': 'คะแนนรวมต้องอยู่ระหว่าง 1-5 ดาว'}, status=400)
+        except (TypeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'คะแนนรวมไม่ถูกต้อง'}, status=400)
+
+        scenery_val = None
+        if aspect_scenery:
+            try:
+                scenery_val = int(aspect_scenery)
+                if scenery_val < 1 or scenery_val > 5:
+                    scenery_val = None
+            except (TypeError, ValueError):
+                scenery_val = None
+
+        transport_val = None
+        if aspect_transport:
+            try:
+                transport_val = int(aspect_transport)
+                if transport_val < 1 or transport_val > 5:
+                    transport_val = None
+            except (TypeError, ValueError):
+                transport_val = None
+
+        review, created = PlaceReview.objects.update_or_create(
+            user=request.user,
+            post=post,
+            defaults={
+                'score': score,
+                'aspect_scenery': scenery_val,
+                'aspect_transport': transport_val,
+                'review_text': review_text,
+            }
+        )
+
+        post.refresh_from_db(fields=['avg_rating', 'review_count'])
+
+        return JsonResponse({
+            'status': 'success',
+            'created': created,
+            'review_id': review.id,
+            'score': review.score,
+            'aspect_scenery': review.aspect_scenery,
+            'aspect_transport': review.aspect_transport,
+            'review_text': review.review_text or '',
+            'avg_rating': float(post.avg_rating),
+            'review_count': post.review_count,
+            'message': 'บันทึกการรีวิวเรียบร้อยแล้ว ⭐' if created else 'อัปเดตรีวิวเรียบร้อยแล้ว ✨'
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required(login_url='login')
+@require_POST
+def delete_review_api(request, pk):
+    """
+    API สำหรับลบรีวิวสถานที่ (เฉพาะเจ้าของรีวิว)
+    """
+    try:
+        review = get_object_or_404(PlaceReview, pk=pk)
+        if review.user != request.user:
+            return JsonResponse({'status': 'error', 'message': 'คุณไม่มีสิทธิ์ลบรีวิวนี้'}, status=403)
+
+        post = review.post
+        review.delete()
+        post.refresh_from_db(fields=['avg_rating', 'review_count'])
+
+        return JsonResponse({
+            'status': 'success',
+            'avg_rating': float(post.avg_rating),
+            'review_count': post.review_count,
+            'message': 'ลบรีวิวเรียบร้อยแล้ว'
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+def get_post_reviews_api(request, pk):
+    """
+    API คืนรายการรีวิวทั้งหมดของโพสต์
+    """
+    post = get_object_or_404(Post, pk=pk)
+    reviews = post.reviews.select_related('user', 'user__profile').all()
+
+    rev_list = []
+    for r in reviews:
+        display_name = r.user.username
+        avatar_url = None
+        if hasattr(r.user, 'profile'):
+            display_name = r.user.profile.get_display_name()
+            avatar_url = r.user.profile.get_avatar_url()
+
+        rev_list.append({
+            'id': r.id,
+            'username': r.user.username,
+            'display_name': display_name,
+            'avatar_url': avatar_url,
+            'score': r.score,
+            'aspect_scenery': r.aspect_scenery,
+            'aspect_transport': r.aspect_transport,
+            'review_text': r.review_text or '',
+            'created_at': r.created_at.strftime('%d/%m/%Y %H:%M'),
+            'is_owner': request.user.is_authenticated and r.user == request.user
+        })
+
+    return JsonResponse({
+        'status': 'ok',
+        'post_id': post.id,
+        'avg_rating': float(post.avg_rating),
+        'review_count': post.review_count,
+        'reviews': rev_list
+    })
 
