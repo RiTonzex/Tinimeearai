@@ -159,15 +159,24 @@
                 {% endfor %}
             </div>
 
-            <!-- Location Overlay Badge -->
-            {% if post.location_name %}
-                <div class="absolute bottom-4 left-4 z-20 pointer-events-none">
-                    <span class="px-3.5 py-1.5 rounded-2xl bg-black/80 backdrop-blur-md border border-white/10 text-white text-xs font-bold shadow-2xl flex items-center gap-1.5">
+            <!-- Location, Distance & Weather Overlay Badges -->
+            <div class="absolute bottom-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                {% if post.location_name %}
+                    <span class="px-3.5 py-1.5 rounded-2xl bg-black/85 backdrop-blur-md border border-white/10 text-white text-xs font-bold shadow-2xl flex items-center gap-1.5">
                         <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
                         <span>{{ post.location_name }}</span>
+                        {% if post.distance_km is not None %}
+                            <span class="text-[11px] text-emerald-400 font-extrabold ml-1 border-l border-white/20 pl-1.5">📍 {{ post.distance_km }} กม.</span>
+                        {% endif %}
                     </span>
-                </div>
-            {% endif %}
+                {% endif %}
+
+                {% if post.weather %}
+                    <span class="px-3 py-1.5 rounded-2xl bg-black/85 backdrop-blur-md border border-amber-500/30 text-amber-300 text-xs font-extrabold shadow-2xl flex items-center gap-1.5">
+                        <span>{{ post.weather.display }}</span>
+                    </span>
+                {% endif %}
+            </div>
 
             {% if post.get_all_image_urls|length > 1 %}
                 <!-- Photo Count Badge Top Right (Clean Text Only) -->

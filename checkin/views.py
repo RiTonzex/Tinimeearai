@@ -14,6 +14,7 @@ from django.db.models import Count, Q, F
 from django.http import JsonResponse, HttpResponseForbidden
 from .models import Post, PostImage, Comment, Follow, Notification, Profile
 from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm
+from .utils import calculate_haversine_distance, get_live_weather
 
 @login_required(login_url='login')
 def post_list(request):
@@ -84,6 +85,41 @@ def post_list(request):
         posts_list.sort(key=lambda x: getattr(x, 'smart_feed_score', 0), reverse=True)
         posts = posts_list
 
+    # อ่านค่าพิกัดผู้ใช้จาก Query string หรือ Session
+    user_lat = request.GET.get('lat')
+    user_lng = request.GET.get('lng')
+    if user_lat and user_lng:
+        try:
+            user_lat = float(user_lat)
+            user_lng = float(user_lng)
+            request.session['user_lat'] = user_lat
+            request.session['user_lng'] = user_lng
+        except (ValueError, TypeError):
+            user_lat = request.session.get('user_lat')
+            user_lng = request.session.get('user_lng')
+    else:
+        user_lat = request.session.get('user_lat')
+        user_lng = request.session.get('user_lng')
+
+    nearby = request.GET.get('nearby') == '1'
+
+    # เติมข้อมูลระยะทาง Haversine และสภาพอากาศสด Open-Meteo
+    for p in posts:
+        if user_lat is not None and user_lng is not None and getattr(p, 'has_coordinates', False):
+            p.distance_km = calculate_haversine_distance(user_lat, user_lng, p.latitude, p.longitude)
+        else:
+            p.distance_km = None
+
+        if getattr(p, 'has_coordinates', False):
+            p.weather = get_live_weather(p.latitude, p.longitude)
+        else:
+            p.weather = None
+
+    # ตัวกรอง "ใกล้ฉัน (< 10km)"
+    if nearby and user_lat is not None and user_lng is not None:
+        posts = [p for p in posts if p.distance_km is not None and p.distance_km <= 10.0]
+        posts.sort(key=lambda x: x.distance_km if x.distance_km is not None else 999999)
+
     # ข้อมูลพิกัดสำหรับแสดงบน Leaflet Map
     geo_posts = []
     for p in posts:
@@ -106,6 +142,9 @@ def post_list(request):
         'feed_tab': feed_tab,
         'following_ids': following_ids,
         'geo_posts_json': geo_posts,
+        'user_lat': user_lat,
+        'user_lng': user_lng,
+        'nearby': nearby,
     }
     return render(request, 'checkin/post_list.html', context)
 
@@ -129,6 +168,19 @@ def post_detail(request, pk):
 
     comments = post.comments.select_related('user', 'user__profile').all()
     comment_form = CommentForm()
+
+    # คำนวณระยะทางและดึงสภาพอากาศสำหรับหน้ารายละเอียด
+    user_lat = request.session.get('user_lat')
+    user_lng = request.session.get('user_lng')
+    if user_lat is not None and user_lng is not None and getattr(post, 'has_coordinates', False):
+        post.distance_km = calculate_haversine_distance(user_lat, user_lng, post.latitude, post.longitude)
+    else:
+        post.distance_km = None
+
+    if getattr(post, 'has_coordinates', False):
+        post.weather = get_live_weather(post.latitude, post.longitude)
+    else:
+        post.weather = None
 
     context = {
         'post': post,
@@ -860,10 +912,36 @@ def search_view(request):
     else:  # newest
         posts_qs = posts_qs.order_by('-created_at')
 
-    post_results = posts_qs.select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').distinct()
+    post_results = list(posts_qs.select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').distinct())
+
+    user_lat = request.GET.get('lat') or request.session.get('user_lat')
+    user_lng = request.GET.get('lng') or request.session.get('user_lng')
+    if user_lat and user_lng:
+        try:
+            user_lat = float(user_lat)
+            user_lng = float(user_lng)
+        except (ValueError, TypeError):
+            user_lat, user_lng = None, None
+
+    nearby = request.GET.get('nearby') == '1'
+
+    for p in post_results:
+        if user_lat is not None and user_lng is not None and getattr(p, 'has_coordinates', False):
+            p.distance_km = calculate_haversine_distance(user_lat, user_lng, p.latitude, p.longitude)
+        else:
+            p.distance_km = None
+
+        if getattr(p, 'has_coordinates', False):
+            p.weather = get_live_weather(p.latitude, p.longitude)
+        else:
+            p.weather = None
+
+    if nearby and user_lat is not None and user_lng is not None:
+        post_results = [p for p in post_results if p.distance_km is not None and p.distance_km <= 10.0]
+        post_results.sort(key=lambda x: x.distance_km if x.distance_km is not None else 999999)
 
     # Active Filters Count
-    active_filters_count = len(selected_regions) + len(selected_provinces) + len(selected_categories) + (1 if date_range != 'all' else 0) + (1 if sort_by != 'newest' else 0)
+    active_filters_count = len(selected_regions) + len(selected_provinces) + len(selected_categories) + (1 if date_range != 'all' else 0) + (1 if sort_by != 'newest' else 0) + (1 if nearby else 0)
 
     context = {
         'query': query,
@@ -881,6 +959,9 @@ def search_view(request):
         'end_date': end_date_str,
         'sort_by': sort_by,
         'active_filters_count': active_filters_count,
+        'user_lat': user_lat,
+        'user_lng': user_lng,
+        'nearby': nearby,
     }
     return render(request, 'checkin/search.html', context)
 
