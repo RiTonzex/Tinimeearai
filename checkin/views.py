@@ -10,7 +10,7 @@ from django.contrib.auth import login, logout, authenticate, update_session_auth
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-from django.db.models import Q, F
+from django.db.models import Count, Q, F
 from django.http import JsonResponse, HttpResponseForbidden
 from .models import Post, PostImage, Comment, Follow, Notification, Profile
 from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm
@@ -711,27 +711,85 @@ def mark_all_notifications_read(request):
     messages.success(request, 'ทำเครื่องหมายว่าอ่านแล้วทั้งหมดเรียบร้อยแล้ว ✨')
     return redirect('notifications')
 
+# 77 จังหวัด และ 6 ภูมิภาคในประเทศไทย (Thailand 77 Provinces & 6 Regions Mapping)
+THAI_REGION_PROVINCES = {
+    'north': {
+        'name': 'ภาคเหนือ',
+        'provinces': ['เชียงใหม่', 'เชียงราย', 'แม่ฮ่องสอน', 'ลำปาง', 'ลำพูน', 'น่าน', 'พะเยา', 'แพร่', 'อุตรดิตถ์']
+    },
+    'central': {
+        'name': 'ภาคกลาง',
+        'provinces': ['กรุงเทพมหานคร', 'กรุงเทพ', 'นนทบุรี', 'ปทุมธานี', 'สมุทรปราการ', 'พระนครศรีอยุธยา', 'อยุธยา', 'อ่างทอง', 'ลพบุรี', 'สิงห์บุรี', 'ชัยนาท', 'สระบุรี', 'นครนายก', 'สุพรรณบุรี', 'นครปฐม', 'สมุทรสาคร', 'สมุทรสงคราม', 'กำแพงเพชร', 'นครสวรรค์', 'พิจิตร', 'พิษณุโลก', 'เพชรบูรณ์', 'สุโขทัย', 'อุทัยธานี']
+    },
+    'northeast': {
+        'name': 'ภาคอีสาน (ตะวันออกเฉียงเหนือ)',
+        'provinces': ['นครราชสีมา', 'โคราช', 'บุรีรัมย์', 'สุรินทร์', 'ศรีสะเกษ', 'อุบลราชธานี', 'ยโสธร', 'ชัยภูมิ', 'อำนาจเจริญ', 'บึงกาฬ', 'หนองบัวลำภู', 'ขอนแก่น', 'อุดรธานี', 'เลย', 'หนองคาย', 'มหาสารคาม', 'ร้อยเอ็ด', 'กาฬสินธุ์', 'สกลนคร', 'นครพนม', 'มุกดาหาร']
+    },
+    'south': {
+        'name': 'ภาคใต้',
+        'provinces': ['ภูเก็ต', 'สุราษฎร์ธานี', 'กระบี่', 'พังงา', 'สงขลา', 'นครศรีธรรมราช', 'ชุมพร', 'ระนอง', 'ตรัง', 'พัทลุง', 'สตูล', 'ปัตตานี', 'ยะลา', 'นราธิวาส', 'เกาะสมุย', 'เกาะพะงัน', 'เกาะพีพี']
+    },
+    'east': {
+        'name': 'ภาคตะวันออก',
+        'provinces': ['ชลบุรี', 'พัทยา', 'ระยอง', 'จันทบุรี', 'ตราด', 'ฉะเชิงเทรา', 'ปราจีนบุรี', 'สระแก้ว', 'เกาะเสม็ด', 'เกาะช้าง']
+    },
+    'west': {
+        'name': 'ภาคตะวันตก',
+        'provinces': ['กาญจนบุรี', 'ตาก', 'เพชรบุรี', 'ประจวบคีรีขันธ์', 'หัวหิน', 'ราชบุรี']
+    }
+}
+
+ALL_THAI_PROVINCES = [
+    'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น', 'จันทบุรี', 'ฉะเชิงเทรา',
+    'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร', 'เชียงราย', 'เชียงใหม่', 'ตรัง', 'ตราด', 'ตาก', 'นครนายก',
+    'นครปฐม', 'นครพนม', 'นครราชสีมา', 'นครศรีธรรมราช', 'นครสวรรค์', 'นนทบุรี', 'นราธิวาส', 'น่าน',
+    'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์', 'ปราจีนบุรี', 'ปัตตานี', 'พะเยา', 'พระนครศรีอยุธยา',
+    'พังงา', 'พัทลุง', 'พิจิตร', 'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์', 'แพร่', 'ภูเก็ต', 'มหาสารคาม',
+    'มุกดาหาร', 'แม่ฮ่องสอน', 'ยโสธร', 'ยะลา', 'ร้อยเอ็ด', 'ระนอง', 'ระยอง', 'ราชบุรี', 'ลพบุรี',
+    'ลำปาง', 'ลำพูน', 'เลย', 'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ', 'สมุทรสงคราม',
+    'สมุทรสาคร', 'สระแก้ว', 'สระบุรี', 'สิงห์บุรี', 'สุโขทัย', 'สุพรรณบุรี', 'สุราษฎร์ธานี', 'สุรินทร์',
+    'หนองคาย', 'หนองบัวลำภู', 'อ่างทอง', 'อำนาจเจริญ', 'อุดรธานี', 'อุตรดิตถ์', 'อุทัยธานี', 'อุบลราชธานี'
+]
+
+POPULAR_CATEGORIES = [
+    'คาเฟ่', 'ทะเล', 'ภูเขา', 'จุดชมวิว', 'ร้านอาหาร', 'วัด', 'พิกัดลับ', 'แคมป์ปิ้ง', 'โฮมสเตย์', 'น้ำตก', 'ตลาดคนเดิน'
+]
+
 @login_required(login_url='login')
 def search_view(request):
     """
-    หน้าค้นหา (Search Hub) รองรับการค้นหา 2 หมวด: โพสต์ (Posts) และ บัญชีผู้ใช้ (Accounts)
+    หน้าค้นหาขั้นสูง (Advanced Search Hub)
+    รองรับการค้นหาแยกตาม 77 จังหวัด, 6 ภูมิภาค, หมวดหมู่/แท็ก, ช่วงวันที่ และเรียงลำดับผลลัพธ์
     """
     query = request.GET.get('q', '').strip()
     search_type = request.GET.get('type', 'posts')
     if search_type not in ('posts', 'accounts'):
         search_type = 'posts'
 
-    post_results = []
+    selected_regions = request.GET.getlist('regions')
+    selected_provinces = request.GET.getlist('provinces')
+    selected_categories = request.GET.getlist('categories')
+    date_range = request.GET.get('date_range', 'all')
+    start_date_str = request.GET.get('start_date', '').strip()
+    end_date_str = request.GET.get('end_date', '').strip()
+    sort_by = request.GET.get('sort_by', 'newest')
+
+    posts_qs = Post.objects.all()
+    if hasattr(Post, 'is_hidden'):
+        posts_qs = posts_qs.filter(is_hidden=False)
+    if hasattr(Profile, 'is_banned'):
+        posts_qs = posts_qs.filter(user__profile__is_banned=False)
     account_results = []
 
+    # 1. Text Keyword Filter
     if query:
-        post_results = Post.objects.filter(
+        posts_qs = posts_qs.filter(
             Q(caption__icontains=query) |
             Q(location_name__icontains=query) |
             Q(tags__icontains=query) |
             Q(user__username__icontains=query) |
             Q(user__profile__display_name__icontains=query)
-        ).select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').distinct()
+        )
 
         account_results = User.objects.filter(
             Q(username__icontains=query) |
@@ -741,11 +799,88 @@ def search_view(request):
             Q(profile__bio__icontains=query)
         ).select_related('profile').prefetch_related('posts').distinct()
 
+    # 2. Region Filter (ภูมิภาค)
+    if selected_regions:
+        region_provinces_list = []
+        for r in selected_regions:
+            if r in THAI_REGION_PROVINCES:
+                region_provinces_list.extend(THAI_REGION_PROVINCES[r]['provinces'])
+        if region_provinces_list:
+            region_q = Q()
+            for p in region_provinces_list:
+                region_q |= Q(location_name__icontains=p) | Q(caption__icontains=p)
+            posts_qs = posts_qs.filter(region_q)
+
+    # 3. Province Filter (77 จังหวัด)
+    if selected_provinces:
+        prov_q = Q()
+        for prov in selected_provinces:
+            if prov.strip():
+                prov_q |= Q(location_name__icontains=prov.strip()) | Q(caption__icontains=prov.strip())
+        posts_qs = posts_qs.filter(prov_q)
+
+    # 4. Category / Tag Filter
+    if selected_categories:
+        cat_q = Q()
+        for cat in selected_categories:
+            if cat.strip():
+                cat_q |= Q(tags__icontains=cat.strip()) | Q(caption__icontains=cat.strip())
+        posts_qs = posts_qs.filter(cat_q)
+
+    # 5. Date Range Filter (ช่วงวันที่)
+    today = timezone.now().date()
+    if date_range == 'today':
+        posts_qs = posts_qs.filter(created_at__date=today)
+    elif date_range == '7days':
+        posts_qs = posts_qs.filter(created_at__date__gte=today - timezone.timedelta(days=7))
+    elif date_range == '30days':
+        posts_qs = posts_qs.filter(created_at__date__gte=today - timezone.timedelta(days=30))
+    elif date_range == 'custom':
+        from datetime import datetime
+        if start_date_str:
+            try:
+                start_dt = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                posts_qs = posts_qs.filter(created_at__date__gte=start_dt)
+            except ValueError:
+                pass
+        if end_date_str:
+            try:
+                end_dt = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                posts_qs = posts_qs.filter(created_at__date__lte=end_dt)
+            except ValueError:
+                pass
+
+    # 6. Sorting / Ordering
+    if sort_by == 'popular':
+        posts_qs = posts_qs.annotate(num_likes=Count('likes')).order_by('-num_likes', '-created_at')
+    elif sort_by == 'views':
+        posts_qs = posts_qs.order_by('-views_count', '-created_at')
+    elif sort_by == 'comments':
+        posts_qs = posts_qs.annotate(num_comments=Count('comments')).order_by('-num_comments', '-created_at')
+    else:  # newest
+        posts_qs = posts_qs.order_by('-created_at')
+
+    post_results = posts_qs.select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').distinct()
+
+    # Active Filters Count
+    active_filters_count = len(selected_regions) + len(selected_provinces) + len(selected_categories) + (1 if date_range != 'all' else 0) + (1 if sort_by != 'newest' else 0)
+
     context = {
         'query': query,
         'search_type': search_type,
         'post_results': post_results,
         'account_results': account_results,
+        'thai_regions': THAI_REGION_PROVINCES,
+        'all_provinces': ALL_THAI_PROVINCES,
+        'popular_categories': POPULAR_CATEGORIES,
+        'selected_regions': selected_regions,
+        'selected_provinces': selected_provinces,
+        'selected_categories': selected_categories,
+        'date_range': date_range,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'sort_by': sort_by,
+        'active_filters_count': active_filters_count,
     }
     return render(request, 'checkin/search.html', context)
 

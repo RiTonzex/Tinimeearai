@@ -1,9 +1,38 @@
 {% extends 'base.html' %}
 
-{% block title %}ค้นหาโพสต์ & ผู้ใช้งาน - ที่นี่มีอะไร{% endblock %}
+{% block title %}ค้นหาและตัวกรองสถานที่ 77 จังหวัด - ที่นี่มีอะไร{% endblock %}
+
+{% block main_width %}max-w-3xl{% endblock %}
 
 {% block extra_css %}
 <style>
+    .glass-card-filter {
+        background: rgba(18, 18, 24, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    }
+    .filter-chip {
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .filter-chip:hover {
+        transform: translateY(-1.5px);
+    }
+    .filter-chip input:checked + label {
+        background: #ffffff;
+        color: #000000;
+        border-color: #ffffff;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+    }
+    .filter-chip-indigo input:checked + label {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        color: #ffffff;
+        border-color: #818cf8;
+        font-weight: 700;
+        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+    }
     .story-ring {
         background: linear-gradient(135deg, #71717a 0%, #3f3f46 50%, #27272a 100%);
         padding: 2px;
@@ -12,249 +41,366 @@
 {% endblock %}
 
 {% block content %}
-<div class="space-y-5 max-w-lg mx-auto pb-10">
+<div class="space-y-6 pb-16">
 
     <!-- Search Header -->
-    <div class="space-y-1.5 px-1">
-        <h1 class="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <i data-lucide="search" class="w-6 h-6 text-white"></i>
-            <span>ค้นหา</span>
-        </h1>
-        <p class="text-xs text-zinc-400">ค้นหาสถานที่ท่องเที่ยว พิกัดลับ หรือค้นหาเพื่อนนักเดินทาง</p>
+    <div class="flex items-center justify-between px-1">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-2xl bg-zinc-800 border border-white/10 flex items-center justify-center text-white shadow-lg">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                </div>
+                <span>ค้นหาและตัวกรองขั้นสูง</span>
+            </h1>
+            <p class="text-xs text-zinc-400 mt-1">ค้นหาสถานที่ท่องเที่ยว 77 จังหวัด ภูมิภาค หรือค้นหาเพื่อนนักเดินทาง</p>
+        </div>
+
+        {% if active_filters_count > 0 %}
+            <a href="{% url 'search' %}?type={{ search_type }}" class="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500 hover:text-white transition text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-sm">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span>ล้างตัวกรอง ({{ active_filters_count }})</span>
+            </a>
+        {% endif %}
     </div>
 
-    <!-- Search Bar Form -->
-    <form method="GET" action="{% url 'search' %}" class="space-y-3" id="search-form">
+    <!-- MAIN SEARCH & FILTER FORM -->
+    <form method="GET" action="{% url 'search' %}" id="advanced-search-form" class="space-y-4">
         <input type="hidden" name="type" id="search-type-input" value="{{ search_type }}">
 
-        <div class="relative group">
-            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400 group-focus-within:text-white transition-colors">
-                <i data-lucide="search" class="w-4 h-4"></i>
+        <!-- Search Bar with Filter Toggle Button -->
+        <div class="flex items-center gap-2">
+            <div class="relative flex-1 group">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400 group-focus-within:text-white transition-colors">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                </div>
+                <input type="text" 
+                       name="q" 
+                       id="search-query-input" 
+                       value="{{ query }}" 
+                       placeholder="ค้นหา เช่น คาเฟ่, น้ำตก, เชียงใหม่, ภูเก็ต, หรือชื่อเพื่อน..." 
+                       class="w-full pl-11 pr-10 py-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-white placeholder-zinc-500 focus:ring-2 focus:ring-white/30 focus:border-zinc-700 outline-none text-xs md:text-sm transition shadow-inner font-medium">
+                
+                {% if query %}
+                    <a href="{% url 'search' %}?type={{ search_type }}" class="absolute inset-y-0 right-3 flex items-center text-zinc-400 hover:text-white" title="ล้างการค้นหา">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </a>
+                {% endif %}
             </div>
-            <input type="text" name="q" id="search-query-input" value="{{ query }}" placeholder="ค้นหา เช่น น้ำตก, ทะเล, เชียงใหม่, หรือชื่อผู้ใช้..." class="w-full pl-11 pr-24 py-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-white placeholder-zinc-500 focus:ring-2 focus:ring-white/30 focus:border-zinc-700 outline-none text-xs md:text-sm transition shadow-inner font-medium">
-            
-            {% if query %}
-                <a href="{% url 'search' %}?type={{ search_type }}" class="absolute inset-y-0 right-20 flex items-center pr-2 text-zinc-400 hover:text-white" title="ล้างการค้นหา">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </a>
-            {% endif %}
-            
-            <button type="submit" class="absolute right-2 top-2 bottom-2 px-4 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-black transition active:scale-95 shadow-md shadow-white/5">
+
+            <!-- Toggle Filter Drawer Button -->
+            <button type="button" 
+                    onclick="toggleFilterPanel()" 
+                    id="filter-toggle-btn"
+                    class="px-4 py-3.5 rounded-2xl border transition font-bold text-xs flex items-center gap-2 shrink-0 active:scale-95 shadow-lg
+                    {% if active_filters_count > 0 %} bg-indigo-600 border-indigo-500 text-white shadow-indigo-600/30 {% else %} bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 {% endif %}">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">ตัวกรอง</span>
+                {% if active_filters_count > 0 %}
+                    <span class="w-5 h-5 rounded-full bg-white text-indigo-950 font-extrabold text-[10px] flex items-center justify-center font-mono">
+                        {{ active_filters_count }}
+                    </span>
+                {% endif %}
+            </button>
+
+            <!-- Submit Button -->
+            <button type="submit" class="px-5 py-3.5 rounded-2xl bg-white hover:bg-zinc-200 text-black text-xs font-extrabold transition active:scale-95 shrink-0 shadow-xl shadow-white/10">
                 ค้นหา
             </button>
         </div>
 
+        <!-- ADVANCED FILTER PANEL (EXPANDABLE GLASS PANEL) -->
+        <div id="advanced-filter-panel" class="{% if active_filters_count == 0 %}hidden{% endif %} glass-card-filter rounded-3xl p-5 md:p-6 space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+            
+            <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="filter" class="w-4 h-4 text-indigo-400"></i>
+                    <h3 class="text-sm font-extrabold text-white">ตัวกรองการค้นหาขั้นสูง (Advanced Filters)</h3>
+                </div>
+                <button type="button" onclick="toggleFilterPanel()" class="text-xs text-zinc-400 hover:text-white font-medium">
+                    ซ่อนตัวกรอง
+                </button>
+            </div>
+
+            <!-- Filter 1: ภูมิภาค (6 Regions) -->
+            <div class="space-y-2.5">
+                <label class="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                    <i data-lucide="map-pin" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <span>กรองตามภูมิภาค (6 ภาค)</span>
+                </label>
+                <div class="flex flex-wrap gap-2">
+                    {% for key, reg in thai_regions.items %}
+                        <div class="filter-chip filter-chip-indigo">
+                            <input type="checkbox" 
+                                   name="regions" 
+                                   value="{{ key }}" 
+                                   id="reg-{{ key }}" 
+                                   class="hidden"
+                                   {% if key in selected_regions %}checked{% endif %}>
+                            <label for="reg-{{ key }}" class="cursor-pointer px-3.5 py-1.5 rounded-xl bg-zinc-950/90 border border-zinc-800 text-zinc-300 text-xs font-medium inline-flex items-center gap-1.5 transition">
+                                <span>{{ reg.name }}</span>
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Filter 2: 77 จังหวัด (Provinces Filter) -->
+            <div class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                        <i data-lucide="compass" class="w-3.5 h-3.5 text-emerald-400"></i>
+                        <span>เลือกจังหวัด (77 จังหวัด)</span>
+                    </label>
+                    <span class="text-[10px] text-zinc-500">เลือกได้หลายจังหวัด</span>
+                </div>
+                
+                <!-- Custom Province Select Dropdown -->
+                <select name="provinces" multiple class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition max-h-36 font-sans">
+                    {% for prov in all_provinces %}
+                        <option value="{{ prov }}" {% if prov in selected_provinces %}selected{% endif %} class="py-1 px-2 rounded hover:bg-zinc-800">
+                            📍 {{ prov }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <p class="text-[10px] text-zinc-500 italic">* กด Ctrl (หรือ Cmd บน Mac) เพื่อเลือกหลายจังหวัดพร้อมกัน</p>
+            </div>
+
+            <!-- Filter 3: หมวดหมู่สถานที่ (Popular Categories) -->
+            <div class="space-y-2.5">
+                <label class="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                    <i data-lucide="tag" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span>หมวดหมู่สถานที่ / แท็กยอดนิยม</span>
+                </label>
+                <div class="flex flex-wrap gap-2">
+                    {% for cat in popular_categories %}
+                        <div class="filter-chip">
+                            <input type="checkbox" 
+                                   name="categories" 
+                                   value="{{ cat }}" 
+                                   id="cat-{{ forloop.counter }}" 
+                                   class="hidden"
+                                   {% if cat in selected_categories %}checked{% endif %}>
+                            <label for="cat-{{ forloop.counter }}" class="cursor-pointer px-3 py-1.5 rounded-xl bg-zinc-950/90 border border-zinc-800 text-zinc-300 text-xs font-medium inline-flex items-center gap-1 transition">
+                                <span>#{{ cat }}</span>
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Filter 4 & 5: ช่วงเวลาและการเรียงลำดับ -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-white/10">
+                
+                <!-- Date Range -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-zinc-300 block">ช่วงเวลาการโพสต์:</label>
+                    <select name="date_range" id="date-range-select" onchange="toggleCustomDates()" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+                        <option value="all" {% if date_range == 'all' %}selected{% endif %}>ทั้งหมด (All Time)</option>
+                        <option value="today" {% if date_range == 'today' %}selected{% endif %}>วันนี้</option>
+                        <option value="7days" {% if date_range == '7days' %}selected{% endif %}>7 วันล่าสุด</option>
+                        <option value="30days" {% if date_range == '30days' %}selected{% endif %}>30 วันล่าสุด</option>
+                        <option value="custom" {% if date_range == 'custom' %}selected{% endif %}>กำหนดช่วงวันที่เอง...</option>
+                    </select>
+
+                    <!-- Custom Start & End Date Inputs -->
+                    <div id="custom-date-inputs" class="{% if date_range != 'custom' %}hidden{% endif %} grid grid-cols-2 gap-2 pt-1">
+                        <div>
+                            <span class="text-[10px] text-zinc-400 block mb-0.5">ตั้งแต่วันที่:</span>
+                            <input type="date" name="start_date" value="{{ start_date }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-zinc-400 block mb-0.5">ถึงวันที่:</span>
+                            <input type="date" name="end_date" value="{{ end_date }}" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-xs text-white">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sort By -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-zinc-300 block">เรียงลำดับตาม:</label>
+                    <select name="sort_by" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+                        <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>ล่าสุด (Newest First)</option>
+                        <option value="popular" {% if sort_by == 'popular' %}selected{% endif %}>ได้รับความนิยมสูงสุด (Most Liked)</option>
+                        <option value="views" {% if sort_by == 'views' %}selected{% endif %}>จำนวนเข้าชมสูงสุด (Most Viewed)</option>
+                        <option value="comments" {% if sort_by == 'comments' %}selected{% endif %}>คอมเมนต์มากที่สุด (Most Commented)</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <!-- Filter Panel Action Buttons -->
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <a href="{% url 'search' %}?type={{ search_type }}" class="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition text-xs font-bold">
+                    ล้างการตั้งค่า
+                </a>
+                <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-lg shadow-indigo-600/30 active:scale-95">
+                    นำตัวกรองไปใช้
+                </button>
+            </div>
+
+        </div>
+
     </form>
 
-    <!-- Search Tabs: Posts vs Accounts -->
+    <!-- SEARCH TABS: POSTS vs ACCOUNTS -->
     <div class="grid grid-cols-2 p-1 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-bold">
-        <a href="?q={{ query }}&type=posts" class="py-2.5 rounded-xl text-center flex items-center justify-center gap-2 transition {% if search_type == 'posts' %}bg-white text-black font-bold shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+        <a href="?q={{ query }}&type=posts{% for r in selected_regions %}&regions={{ r }}{% endfor %}{% for p in selected_provinces %}&provinces={{ p }}{% endfor %}{% for c in selected_categories %}&categories={{ c }}{% endfor %}&date_range={{ date_range }}&sort_by={{ sort_by }}" 
+           class="py-2.5 rounded-xl text-center flex items-center justify-center gap-2 transition {% if search_type == 'posts' %}bg-white text-black font-bold shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
             <i data-lucide="grid" class="w-4 h-4"></i>
             <span>โพสต์สถานที่ ({{ post_results|length }})</span>
         </a>
-        <a href="?q={{ query }}&type=accounts" class="py-2.5 rounded-xl text-center flex items-center justify-center gap-2 transition {% if search_type == 'accounts' %}bg-white text-black font-bold shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+        <a href="?q={{ query }}&type=accounts" 
+           class="py-2.5 rounded-xl text-center flex items-center justify-center gap-2 transition {% if search_type == 'accounts' %}bg-white text-black font-bold shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
             <i data-lucide="users" class="w-4 h-4"></i>
             <span>ผู้ใช้งาน ({{ account_results|length }})</span>
         </a>
     </div>
 
-    <!-- Search Results Content -->
-    {% if query %}
-        <!-- POST RESULTS TAB -->
-        {% if search_type == 'posts' %}
-            <div class="space-y-4">
-                {% if post_results %}
-                    {% for post in post_results %}
-                        <article class="rounded-[2rem] glass-card glass-card-hover overflow-hidden shadow-xl border border-white/[0.08] group">
-                            <a href="{% url 'post_detail' pk=post.pk %}" class="block relative aspect-[16/10] bg-black overflow-hidden">
-                                <img src="{{ post.get_image_url }}" alt="{{ post.location_name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                
-                                {% if post.location_name %}
-                                    <div class="absolute bottom-3 left-3 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
-                                        <i data-lucide="navigation" class="w-3.5 h-3.5 text-zinc-300"></i>
-                                        <span>{{ post.location_name }}</span>
-                                    </div>
-                                {% endif %}
-                            </a>
-
-                            <div class="p-4 md:p-5 space-y-3">
-                                <div class="flex items-center gap-2.5">
-                                    <a href="{% url 'user_profile' username=post.user.username %}" class="story-ring rounded-2xl shadow-sm overflow-hidden shrink-0">
-                                        {% if post.user.profile.get_avatar_url %}
-                                            <img src="{{ post.user.profile.get_avatar_url }}" alt="Avatar" class="w-8 h-8 rounded-[12px] object-cover bg-zinc-900">
-                                        {% else %}
-                                            <div class="w-8 h-8 rounded-[12px] bg-zinc-900 flex items-center justify-center font-bold text-xs text-white">
-                                                {{ post.user.profile.get_initial|default:post.user.username|slice:":1"|upper }}
-                                            </div>
-                                        {% endif %}
-                                    </a>
-                                    <div>
-                                        <a href="{% url 'user_profile' username=post.user.username %}" class="text-xs font-bold text-white hover:text-zinc-300 transition">
-                                            {{ post.user.profile.get_display_name|default:post.user.username }}
-                                        </a>
-                                        <span class="text-[10px] text-zinc-500 block font-mono">@{{ post.user.username }}</span>
-                                    </div>
+    <!-- SEARCH RESULTS SECTION -->
+    {% if search_type == 'posts' %}
+        <div class="space-y-4">
+            {% if post_results %}
+                {% for post in post_results %}
+                    <article class="rounded-[2.25rem] glass-card glass-card-hover overflow-hidden shadow-2xl border border-white/[0.08] group">
+                        <a href="{% url 'post_detail' pk=post.pk %}" class="block relative aspect-[16/10] bg-black overflow-hidden">
+                            <img src="{{ post.get_image_url }}" alt="{{ post.location_name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            
+                            {% if post.location_name %}
+                                <div class="absolute bottom-3 left-3 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xl">
+                                    <i data-lucide="map-pin" class="w-3.5 h-3.5 text-rose-400"></i>
+                                    <span>{{ post.location_name }}</span>
                                 </div>
+                            {% endif %}
+                        </a>
 
-                                <p class="text-xs md:text-sm text-zinc-200 leading-relaxed line-clamp-2">{{ post.caption }}</p>
-
-                                {% if post.tags %}
-                                    <div class="flex flex-wrap gap-1.5">
-                                        {% for tag in post.tags.split %}
-                                            <span class="px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-[10px] font-medium">
-                                                #{{ tag|cut:"," }}
-                                            </span>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-
-                                <div class="pt-2 flex items-center justify-between border-t border-zinc-800 text-xs text-zinc-400">
-                                    <div class="flex items-center gap-3.5">
-                                        <span class="flex items-center gap-1 text-zinc-300 font-medium">
-                                            <i data-lucide="heart" class="w-3.5 h-3.5 text-rose-500"></i>
-                                            <span>{{ post.total_likes }}</span>
-                                        </span>
-                                        <span class="flex items-center gap-1 text-zinc-400 font-medium">
-                                            <i data-lucide="message-circle" class="w-3.5 h-3.5 text-zinc-300"></i>
-                                            <span>{{ post.total_comments }}</span>
-                                        </span>
-                                    </div>
-                                    <span class="text-[10px] text-zinc-500">{{ post.created_at|timesince }} ที่แล้ว</span>
-                                </div>
-                            </div>
-                        </article>
-                    {% endfor %}
-                {% else %}
-                    <div class="p-8 rounded-3xl glass-card border border-dashed border-zinc-800 text-center space-y-3">
-                        <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center mx-auto">
-                            <i data-lucide="compass" class="w-6 h-6 text-zinc-400"></i>
-                        </div>
-                        <p class="text-sm font-bold text-white">ไม่พบโพสต์ที่ตรงกับ "{{ query }}"</p>
-                        <p class="text-xs text-zinc-400">ลองค้นหาด้วยคำอื่น เช่น น้ำตก, ทะเล, ดอย, หรือคาเฟ่</p>
-                    </div>
-                {% endif %}
-            </div>
-
-        <!-- ACCOUNTS TAB -->
-        {% else %}
-            <div class="space-y-3">
-                {% if account_results %}
-                    {% for acc in account_results %}
-                        <div class="p-4 rounded-[2rem] glass-card border border-white/[0.08] shadow-lg flex items-center justify-between gap-3">
-                            <div class="flex items-center gap-3.5 min-w-0 flex-1">
-                                <a href="{% url 'user_profile' username=acc.username %}" class="story-ring rounded-2xl shadow-sm overflow-hidden shrink-0">
-                                    {% if acc.profile.get_avatar_url %}
-                                        <img src="{{ acc.profile.get_avatar_url }}" alt="Avatar" class="w-12 h-12 rounded-[16px] object-cover bg-zinc-900">
+                        <div class="p-5 space-y-3">
+                            <div class="flex items-center gap-3">
+                                <a href="{% url 'user_profile' username=post.user.username %}" class="story-ring rounded-2xl shadow-sm overflow-hidden shrink-0">
+                                    {% if post.user.profile.get_avatar_url %}
+                                        <img src="{{ post.user.profile.get_avatar_url }}" alt="Avatar" class="w-9 h-9 rounded-[14px] object-cover bg-zinc-900">
                                     {% else %}
-                                        <div class="w-12 h-12 rounded-[16px] bg-zinc-900 flex items-center justify-center font-black text-white text-base">
-                                            {{ acc.profile.get_initial|default:acc.username|slice:":1"|upper }}
+                                        <div class="w-9 h-9 rounded-[14px] bg-zinc-900 flex items-center justify-center font-bold text-xs text-white">
+                                            {{ post.user.profile.get_initial|default:post.user.username|slice:":1"|upper }}
                                         </div>
                                     {% endif %}
                                 </a>
-
-                                <div class="space-y-0.5 min-w-0 flex-1">
-                                    <div class="flex items-center gap-1.5">
-                                        <a href="{% url 'user_profile' username=acc.username %}" class="text-sm font-bold text-white hover:text-zinc-300 transition truncate">
-                                            {{ acc.profile.get_display_name|default:acc.username }}
-                                        </a>
-                                        <i data-lucide="badge-check" class="w-3.5 h-3.5 text-zinc-400 shrink-0"></i>
-                                    </div>
-                                    <p class="text-[11px] text-zinc-400 font-mono">@{{ acc.username }}</p>
-                                    {% if acc.profile.bio %}
-                                        <p class="text-xs text-zinc-300 line-clamp-1 italic pt-0.5">{{ acc.profile.bio }}</p>
-                                    {% endif %}
+                                <div>
+                                    <a href="{% url 'user_profile' username=post.user.username %}" class="text-xs font-bold text-white hover:text-zinc-300 transition">
+                                        {{ post.user.profile.get_display_name|default:post.user.username }}
+                                    </a>
+                                    <span class="text-[10px] text-zinc-500 block font-mono">@{{ post.user.username }}</span>
                                 </div>
                             </div>
 
-                            <div class="flex items-center gap-2 shrink-0">
-                                {% if acc != request.user %}
-                                    <button type="button" class="follow-btn px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border {% if acc.profile.is_followed_by.exists or acc in request.user.following_set.all %}bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white{% else %}bg-white border-white text-black hover:bg-zinc-200{% endif %}" data-username="{{ acc.username }}">
-                                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
-                                        <span class="follow-text">ติดตาม</span>
-                                    </button>
-                                {% endif %}
+                            <p class="text-xs md:text-sm text-zinc-200 leading-relaxed line-clamp-2">{{ post.caption }}</p>
 
-                                <a href="{% url 'user_profile' username=acc.username %}" class="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white text-xs font-bold transition active:scale-95 border border-zinc-700">
-                                    โปรไฟล์
-                                </a>
+                            {% if post.tags %}
+                                <div class="flex flex-wrap gap-1.5">
+                                    {% for tag in post.tags.split %}
+                                        <span class="px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px] font-medium">
+                                            #{{ tag|cut:"," }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+
+                            <div class="pt-2 flex items-center justify-between border-t border-zinc-800 text-xs text-zinc-400">
+                                <div class="flex items-center gap-4">
+                                    <span class="flex items-center gap-1.5 text-zinc-300 font-medium">
+                                        <i data-lucide="heart" class="w-4 h-4 text-rose-500"></i>
+                                        <span>{{ post.total_likes }}</span>
+                                    </span>
+                                    <span class="flex items-center gap-1.5 text-zinc-400 font-medium">
+                                        <i data-lucide="message-circle" class="w-4 h-4 text-zinc-300"></i>
+                                        <span>{{ post.total_comments }}</span>
+                                    </span>
+                                    <span class="flex items-center gap-1.5 text-zinc-500 font-medium">
+                                        <i data-lucide="eye" class="w-4 h-4 text-zinc-400"></i>
+                                        <span>{{ post.views_count }}</span>
+                                    </span>
+                                </div>
+                                <span class="text-[11px] text-zinc-500 font-mono">{{ post.created_at|timesince }} ที่แล้ว</span>
                             </div>
                         </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="p-8 rounded-3xl glass-card border border-dashed border-zinc-800 text-center space-y-3">
-                        <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center mx-auto">
-                            <i data-lucide="user-x" class="w-6 h-6 text-zinc-400"></i>
-                        </div>
-                        <p class="text-sm font-bold text-white">ไม่พบผู้ใช้งานที่ตรงกับ "{{ query }}"</p>
-                        <p class="text-xs text-zinc-400">ลองพิมพ์ชื่อจริง หรือชื่อผู้ใช้ @username</p>
+                    </article>
+                {% endfor %}
+            {% else %}
+                <div class="p-10 rounded-[2.25rem] glass-card border border-dashed border-zinc-800 text-center space-y-3">
+                    <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center mx-auto shadow-xl">
+                        <i data-lucide="compass" class="w-7 h-7 text-zinc-500"></i>
                     </div>
-                {% endif %}
-            </div>
-        {% endif %}
+                    <p class="text-base font-bold text-white">ไม่พบโพสต์สถานที่ตามเงื่อนไขที่เลือก</p>
+                    <p class="text-xs text-zinc-400 max-w-sm mx-auto">
+                        ลองเปลี่ยนคำค้นหา หรือกดล้างตัวกรองค้นหาขั้นสูงเพื่อดูโพสต์การเดินทางทั้งหมด
+                    </p>
+                    <a href="{% url 'search' %}" class="inline-block px-5 py-2.5 rounded-2xl bg-white text-black font-extrabold text-xs transition active:scale-95 shadow-lg">
+                        ล้างการค้นหาทั้งหมด
+                    </a>
+                </div>
+            {% endif %}
+        </div>
 
+    <!-- ACCOUNTS TAB -->
     {% else %}
-        <!-- Initial Blank State with Suggestions -->
-        <div class="p-8 rounded-[2.25rem] glass-card border border-white/[0.08] text-center space-y-4 shadow-xl">
-            <div class="w-16 h-16 rounded-3xl bg-zinc-900 border border-zinc-800 text-white flex items-center justify-center mx-auto shadow-inner">
-                <i data-lucide="search" class="w-8 h-8"></i>
-            </div>
-            <div class="space-y-1">
-                <h3 class="text-base font-bold text-white">ค้นพบสถานที่หรือเพื่อนใหม่</h3>
-                <p class="text-xs text-zinc-400 max-w-xs mx-auto">พิมพ์คำค้นหาด้านบนเพื่อเริ่มสำรวจโพสต์และผู้ใช้งาน</p>
-            </div>
+        <div class="space-y-3">
+            {% if account_results %}
+                {% for acc in account_results %}
+                    <div class="p-4 rounded-[2rem] glass-card border border-white/[0.08] shadow-lg flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3.5 min-w-0 flex-1">
+                            <a href="{% url 'user_profile' username=acc.username %}" class="story-ring rounded-2xl shadow-sm overflow-hidden shrink-0">
+                                {% if acc.profile.get_avatar_url %}
+                                    <img src="{{ acc.profile.get_avatar_url }}" alt="Avatar" class="w-12 h-12 rounded-[16px] object-cover bg-zinc-900">
+                                {% else %}
+                                    <div class="w-12 h-12 rounded-[16px] bg-zinc-900 flex items-center justify-center font-black text-white text-base">
+                                        {{ acc.profile.get_initial|default:acc.username|slice:":1"|upper }}
+                                    </div>
+                                {% endif %}
+                            </a>
+                            <div class="min-w-0">
+                                <a href="{% url 'user_profile' username=acc.username %}" class="font-bold text-sm text-white hover:text-zinc-300 transition truncate block">
+                                    {{ acc.profile.get_display_name|default:acc.username }}
+                                </a>
+                                <span class="text-xs text-zinc-500 font-mono truncate block">@{{ acc.username }}</span>
+                                {% if acc.profile.bio %}
+                                    <p class="text-xs text-zinc-400 line-clamp-1 mt-0.5">{{ acc.profile.bio }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <a href="{% url 'user_profile' username=acc.username %}" class="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-white font-bold text-xs hover:bg-zinc-800 transition active:scale-95 shrink-0">
+                            ดูโปรไฟล์
+                        </a>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="p-8 rounded-[2rem] glass-card border border-dashed border-zinc-800 text-center space-y-2">
+                    <p class="text-sm font-bold text-white">ไม่พบผู้ใช้งานตามคำค้นหา</p>
+                    <p class="text-xs text-zinc-400">ลองค้นหาด้วยชื่อผู้ใช้ หรือ Display Name อื่น</p>
+                </div>
+            {% endif %}
         </div>
     {% endif %}
 
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.follow-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const username = btn.dataset.username;
-            if (!username) return;
+    function toggleFilterPanel() {
+        const panel = document.getElementById('advanced-filter-panel');
+        if (panel) {
+            panel.classList.toggle('hidden');
+        }
+    }
 
-            btn.disabled = true;
-            try {
-                const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
-                const res = await fetch(`/profile/${encodeURIComponent(username)}/follow/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const textSpan = btn.querySelector('.follow-text');
-                    const icon = btn.querySelector('i');
-
-                    if (data.is_following) {
-                        btn.className = 'follow-btn px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white';
-                        if (textSpan) textSpan.textContent = 'กำลังติดตาม';
-                        if (icon) icon.setAttribute('data-lucide', 'user-check');
-                    } else {
-                        btn.className = 'follow-btn px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border bg-white border-white text-black hover:bg-zinc-200';
-                        if (textSpan) textSpan.textContent = 'ติดตาม';
-                        if (icon) icon.setAttribute('data-lucide', 'user-plus');
-                    }
-
-                    if (window.lucide) {
-                        window.lucide.createIcons();
-                    }
-                }
-            } catch (err) {
-                console.error('Follow toggle error:', err);
-            } finally {
-                btn.disabled = false;
+    function toggleCustomDates() {
+        const select = document.getElementById('date-range-select');
+        const customInputs = document.getElementById('custom-date-inputs');
+        if (select && customInputs) {
+            if (select.value === 'custom') {
+                customInputs.classList.remove('hidden');
+            } else {
+                customInputs.classList.add('hidden');
             }
-        });
-    });
-});
+        }
+    }
 </script>
 {% endblock %}

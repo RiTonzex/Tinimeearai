@@ -256,7 +256,7 @@ class CheckinAppTests(TestCase):
         # Search blank
         resp_blank = self.client.get(reverse('search'))
         self.assertEqual(resp_blank.status_code, 200)
-        self.assertContains(resp_blank, 'ค้นพบสถานที่หรือเพื่อนใหม่')
+        self.assertContains(resp_blank, 'ค้นหาและตัวกรอง')
 
         # Search posts
         resp_post = self.client.get(reverse('search') + '?q=ภูเก็ต&type=posts')
@@ -267,5 +267,24 @@ class CheckinAppTests(TestCase):
         resp_acc = self.client.get(reverse('search') + '?q=testuser&type=accounts')
         self.assertEqual(resp_acc.status_code, 200)
         self.assertContains(resp_acc, 'testuser')
+
+    def test_advanced_search_and_province_filter(self):
+        self.client.login(username='testuser', password='password123')
+
+        # Test Filter by Province
+        resp_prov = self.client.get(reverse('search') + '?provinces=ภูเก็ต')
+        self.assertEqual(resp_prov.status_code, 200)
+        self.assertContains(resp_prov, 'หาดป่าตอง ภูเก็ต')
+
+        # Test Filter by Region (South)
+        resp_reg = self.client.get(reverse('search') + '?regions=south')
+        self.assertEqual(resp_reg.status_code, 200)
+        self.assertContains(resp_reg, 'หาดป่าตอง ภูเก็ต')
+
+        # Test Filter by Date Range (7days)
+        resp_date = self.client.get(reverse('search') + '?date_range=7days&sort_by=popular')
+        self.assertEqual(resp_date.status_code, 200)
+        self.assertContains(resp_date, 'หาดป่าตอง ภูเก็ต')
+
 
 
