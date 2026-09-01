@@ -223,6 +223,9 @@ def create_post(request):
         form = PostForm(request.POST, request.FILES)
         uploaded_files = request.FILES.getlist('images') or ([request.FILES['image']] if 'image' in request.FILES else [])
 
+        if not uploaded_files:
+            form.add_error('image', 'กรุณาเลือกรูปภาพอย่างน้อย 1 รูปภาพ')
+
         if form.is_valid():
             post = form.save(commit=False)
             post.user = request.user
@@ -245,6 +248,27 @@ def create_post(request):
                     order=0
                 )
 
+            # บันทึกผู้ร่วมทริปที่ถูกแท็ก (Tagged Co-Travelers)
+            raw_tagged_ids = request.POST.getlist('tagged_user_ids') or request.POST.get('tagged_user_ids', '').split(',')
+            tagged_ids = []
+            for tid in raw_tagged_ids:
+                try:
+                    val = int(tid)
+                    if val != request.user.id:
+                        tagged_ids.append(val)
+                except (ValueError, TypeError):
+                    pass
+            
+            if tagged_ids:
+                post.tagged_users.set(tagged_ids)
+                for u_id in tagged_ids:
+                    Notification.objects.create(
+                        recipient_id=u_id,
+                        actor=request.user,
+                        verb='post_tagged',
+                        post=post
+                    )
+
             messages.success(request, 'แชร์ประสบการณ์ "ที่นี่มีอะไร" สำเร็จเรียบร้อยแล้ว! ✨')
             return redirect('post_detail', pk=post.pk)
         else:
@@ -257,9 +281,9 @@ def create_post(request):
 @login_required(login_url='login')
 def post_edit(request, pk):
     """
-    แก้ไขโพสต์ (เฉพาะเจ้าของโพสต์เท่านั้น) รองรับการเพิ่มรูปภาพเพิ่มเติม
+    แก้ไขโพสต์ (เฉพาะเจ้าของโพสต์เท่านั้น) รองรับการเพิ่มรูปภาพเพิ่มเติมและผู้ร่วมทริป
     """
-    post = get_object_or_404(Post.objects.prefetch_related('images'), pk=pk)
+    post = get_object_or_404(Post.objects.prefetch_related('images', 'tagged_users'), pk=pk)
     if post.user != request.user:
         messages.error(request, 'คุณไม่มีสิทธิ์แก้ไขโพสต์นี้')
         return redirect('post_detail', pk=pk)
@@ -278,6 +302,31 @@ def post_edit(request, pk):
                         image=img_file,
                         order=current_count + idx
                     )
+
+            # บันทึกปรับปรุงผู้ร่วมทริปที่ถูกแท็ก (เฉพาะคนที่เพิ่มใหม่จะส่งการแจ้งเตือน)
+            existing_tagged_ids = set(post.tagged_users.values_list('id', flat=True))
+            raw_tagged_ids = request.POST.getlist('tagged_user_ids') or request.POST.get('tagged_user_ids', '').split(',')
+            new_tagged_ids = set()
+            for tid in raw_tagged_ids:
+                try:
+                    val = int(tid)
+                    if val != request.user.id:
+                        new_tagged_ids.add(val)
+                except (ValueError, TypeError):
+                    pass
+            
+            post.tagged_users.set(new_tagged_ids)
+
+            # ส่งการแจ้งเตือนเฉพาะคนที่เพิ่งถูกแท็กใหม่เท่านั้น
+            added_ids = new_tagged_ids - existing_tagged_ids
+            for u_id in added_ids:
+                Notification.objects.create(
+                    recipient_id=u_id,
+                    actor=request.user,
+                    verb='post_tagged',
+                    post=post
+                )
+
             messages.success(request, 'อัปเดตข้อมูลโพสต์เรียบร้อยแล้ว 🌟')
             return redirect('post_detail', pk=post.pk)
     else:
@@ -438,10 +487,13 @@ def user_profile_view(request, username):
                 'url': f"/post/{p.id}/"
             })
 
+    tagged_posts = target_user.tagged_posts.select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').order_by('-created_at')
+
     context = {
         'target_user': target_user,
         'profile': profile,
         'posts': target_posts,
+        'tagged_posts': tagged_posts,
         'total_posts': total_posts,
         'total_checkins': total_checkins,
         'total_likes_received': total_likes_received,
@@ -870,4 +922,52 @@ def google_callback(request):
     except Exception as e:
         messages.error(request, f'เกิดข้อผิดพลาดในการเชื่อมต่อกับ Google: {e}')
         return redirect('login')
+
+
+# -----------------------------------------------------------------------------
+# User Search Autocomplete API for Tagging Friends
+# -----------------------------------------------------------------------------
+@login_required(login_url='login')
+def user_search_api(request):
+    """
+    API ค้นหาผู้ใช้งานสำหรับการแท็กเพื่อนร่วมทริป (@username)
+    คืนรายการ JSON List [{id, username, display_name, avatar_url}] จำกัด 10 รายการ
+    โดยดันรายชื่อผู้ใช้งานที่กำลังติดตาม (Following/Followers) ขึ้นก่อน
+    """
+    q = request.GET.get('q', '').strip().lstrip('@')
+    current_user = request.user
+    following_ids = set(current_user.following_set.values_list('following_id', flat=True))
+
+    if not q:
+        users = User.objects.filter(followers_made__follower=current_user).exclude(id=current_user.id).select_related('profile')[:10]
+        if not users.exists():
+            users = User.objects.exclude(id=current_user.id).select_related('profile')[:10]
+    else:
+        users = User.objects.filter(
+            Q(username__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(last_name__icontains=q) |
+            Q(profile__display_name__icontains=q)
+        ).exclude(id=current_user.id).select_related('profile')[:15]
+
+    users_list = []
+    for u in users:
+        display_name = u.username
+        avatar_url = None
+        if hasattr(u, 'profile'):
+            display_name = u.profile.get_display_name()
+            avatar_url = u.profile.get_avatar_url()
+
+        is_followed = u.id in following_ids
+        users_list.append({
+            'id': u.id,
+            'username': u.username,
+            'display_name': display_name,
+            'avatar_url': avatar_url,
+            'is_followed': is_followed,
+            'priority': 0 if is_followed else 1
+        })
+
+    users_list.sort(key=lambda x: (x['priority'], x['username']))
+    return JsonResponse({'status': 'ok', 'users': users_list[:10]})
 
