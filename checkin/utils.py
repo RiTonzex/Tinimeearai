@@ -83,3 +83,158 @@ def get_live_weather(lat, lon):
         pass
 
     return None
+
+
+def extract_cloudinary_public_id(asset_or_url):
+    """
+    ดึง public_id จาก CloudinaryResource, URL หรือสตริง path อย่างถูกต้อง
+    """
+    if not asset_or_url:
+        return None
+
+    raw_val = str(asset_or_url).strip()
+    if not raw_val or 'unsplash.com' in raw_val:
+        return None
+
+    # กรณีเป็น CloudinaryResource หรือ object ที่มี public_id attribute
+    if hasattr(asset_or_url, 'public_id') and asset_or_url.public_id:
+        return str(asset_or_url.public_id).strip()
+
+    # กรณีเป็น URL เต็มของ Cloudinary เช่น:
+    # https://res.cloudinary.com/<cloud>/image/upload/v1234567/tinimeearai_posts/xyz.jpg
+    # https://res.cloudinary.com/<cloud>/image/upload/tinimeearai_posts/xyz
+    if 'cloudinary.com' in raw_val:
+        import re
+        match = re.search(r'/upload/(?:v\d+/)?(.*?)(?:\.[a-zA-Z0-9]+)?$', raw_val)
+        if match:
+            return match.group(1)
+
+    # กรณีเป็น relative path เช่น tinimeearai_posts/sample_watarun_1 หรือ wtvxbemjx0kvdch8ymm5
+    if not raw_val.startswith('http://') and not raw_val.startswith('https://') and not raw_val.startswith('/'):
+        import re
+        return re.sub(r'\.[a-zA-Z0-9]+$', '', raw_val)
+
+    return None
+
+
+def delete_cloudinary_asset(asset_or_url):
+    """
+    ส่งคำสั่งลบไฟล์รูปภาพออกจาก Cloudinary โดยอัตโนมัติ (destroy API)
+    คืนค่า True หากลบสำเร็จ, False หากไม่สำเร็จหรือไม่ใช่รูปภาพ Cloudinary
+    """
+    public_id = extract_cloudinary_public_id(asset_or_url)
+    if not public_id:
+        return False
+
+    try:
+        import cloudinary.uploader
+        res = cloudinary.uploader.destroy(public_id, invalidate=True)
+        return res.get('result') in ('ok', 'not found')
+    except Exception:
+        return False
+
+
+def validate_image_file(file_obj, max_size_mb=15):
+    """
+    ตรวจสอบความปลอดภัยของไฟล์รูปภาพ:
+    1. ตรวจสอบนามสกุลไฟล์ที่อนุญาต (jpg, jpeg, png, webp, gif, heic)
+    2. ตรวจสอบขนาดไฟล์ไม่ให้เกินขนาดที่กำหนด
+    คืนค่า (is_valid: bool, error_message: str | None)
+    """
+    if not file_obj:
+        return False, "ไม่พบไฟล์รูปภาพ"
+
+    ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic'}
+    
+    file_name = getattr(file_obj, 'name', '')
+    if file_name:
+        import os
+        _, ext = os.path.splitext(file_name.lower())
+        if ext not in ALLOWED_EXTENSIONS:
+            return False, f"รูปแบบไฟล์ {ext} ไม่ถูกต้อง กรุณาอัปโหลดไฟล์รูปภาพ (JPG, PNG, WEBP, GIF)"
+
+    file_size = getattr(file_obj, 'size', 0)
+    max_bytes = max_size_mb * 1024 * 1024
+    if file_size > max_bytes:
+        return False, f"ขนาดไฟล์ ({round(file_size / (1024 * 1024), 1)} MB) เกินขีดจำกัดที่กำหนด ({max_size_mb} MB)"
+
+    return True, None
+
+
+def upload_post_image_dedup(file_obj, folder="tinimeearai_posts"):
+    """
+    แนวทางที่ 1 (Deduplication ด้วย Content Hash):
+    คำนวณ MD5 Hash ของเนื้อหาไฟล์รูปภาพก่อนอัปโหลด เพื่อให้รูปภาพที่เหมือนกัน 100%
+    ใช้ public_id เดียวกันเสมอ ไม่สร้างไฟล์ซ้ำบน Cloudinary และประหยัดพื้นที่
+    """
+    if not file_obj:
+        return None
+
+    import os
+    from django.conf import settings
+    import hashlib
+
+    cloud_key = getattr(settings, 'CLOUDINARY_API_KEY', None) or os.environ.get('CLOUDINARY_API_KEY')
+    use_cloud = cloud_key and cloud_key not in ('your_api_key', 'dummy_key', 'dummy_api_key')
+
+    if not use_cloud:
+        # หากอยู่ในโหมด Local หรือ Test ให้ส่งไฟล์กลับไปให้ Django FileStorage จัดการตามปกติ
+        return file_obj
+
+    try:
+        file_bytes = file_obj.read()
+        file_hash = hashlib.md5(file_bytes).hexdigest()
+        file_obj.seek(0)
+
+        import cloudinary.uploader
+        upload_result = cloudinary.uploader.upload(
+            file_obj,
+            folder=folder,
+            public_id=f"post_{file_hash}",
+            overwrite=True,
+            unique_filename=False,
+            resource_type="image"
+        )
+        return upload_result.get('public_id')
+    except Exception:
+        file_obj.seek(0)
+        return file_obj
+
+
+def upload_user_avatar(file_obj, user_id, folder="tinimeearai_avatars"):
+    """
+    แนวทางที่ 2 (ผูกชื่อไฟล์ตาม User ID):
+    ตั้งชื่อไฟล์ Avatar ให้ตรงกับรหัสผู้ใช้ เช่น tinimeearai_avatars/avatar_user_{user_id}
+    เมื่อเปลี่ยนรูปใหม่ รูปใหม่จะเข้าไปทับที่เดิมทันที พร้อมสั่ง Invalidate CDN Cache
+    """
+    if not file_obj:
+        return None
+
+    import os
+    from django.conf import settings
+
+    cloud_key = getattr(settings, 'CLOUDINARY_API_KEY', None) or os.environ.get('CLOUDINARY_API_KEY')
+    use_cloud = cloud_key and cloud_key not in ('your_api_key', 'dummy_key', 'dummy_api_key')
+
+    if not use_cloud:
+        return file_obj
+
+    try:
+        import cloudinary.uploader
+        public_id = f"avatar_user_{user_id}"
+        upload_result = cloudinary.uploader.upload(
+            file_obj,
+            folder=folder,
+            public_id=public_id,
+            overwrite=True,
+            unique_filename=False,
+            invalidate=True,
+            resource_type="image"
+        )
+        return upload_result.get('public_id')
+    except Exception:
+        if hasattr(file_obj, 'seek'):
+            file_obj.seek(0)
+        return file_obj
+
+

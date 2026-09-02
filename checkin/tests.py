@@ -892,6 +892,55 @@ class CheckinAppTests(TestCase):
         response = self.client.get('/sw.js')
         self.assertIn(response.status_code, (200, 301, 302))
 
+    def test_member_login_success(self):
+        response = self.client.post(reverse('login'), {
+            'username': 'testuser',
+            'password': 'password123'
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('post_list'))
+
+    def test_admin_cannot_login_through_member_portal(self):
+        admin_user = User.objects.create_superuser(username='superadmin', password='adminpassword123', email='admin@test.com')
+        response = self.client.post(reverse('login'), {
+            'username': 'superadmin',
+            'password': 'adminpassword123'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง')
+
+    def test_member_cannot_login_through_admin_portal(self):
+        response = self.client.post(reverse('admin_login'), {
+            'username': 'testuser',
+            'password': 'password123'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'สิทธิ์การเข้าถึงถูกปฏิเสธ: หน้านี้สำหรับผู้ดูแลระบบเท่านั้น')
+
+    def test_admin_login_success_through_admin_portal(self):
+        admin_user = User.objects.create_superuser(username='portal_admin', password='adminpassword123', email='padmin@test.com')
+        response = self.client.post(reverse('admin_login'), {
+            'username': 'portal_admin',
+            'password': 'adminpassword123'
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('admin_dashboard'))
+
+    def test_user_follows_api(self):
+        other_user = User.objects.create_user(username='otheruser', password='password123')
+        from checkin.models import Follow
+        Follow.objects.create(follower=self.user, following=other_user)
+
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('user_follows_api', kwargs={'username': 'otheruser'}))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['followers_count'], 1)
+        self.assertEqual(data['followers'][0]['username'], 'testuser')
+
+
+
 
 
 

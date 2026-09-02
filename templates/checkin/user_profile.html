@@ -101,24 +101,32 @@
             </div>
         </div>
 
-        <!-- Quick Summary Stats (Sleek Compact Horizontal Bar) -->
-        <div class="flex items-center justify-around py-3 px-1 rounded-2xl bg-zinc-950/80 border border-zinc-800/80">
-            <div class="flex-1 text-center min-w-0 px-1">
-                <span class="block text-base md:text-lg font-black text-white leading-tight font-mono" id="stat-followers-count">{{ followers_count }}</span>
-                <span class="block text-[11px] font-medium text-zinc-400 mt-0.5 truncate">ผู้ติดตาม</span>
-            </div>
+        <!-- Quick Summary Stats (Interactive Clickable Horizontal Bar) -->
+        <div class="flex items-center justify-around py-2.5 px-1 rounded-2xl bg-zinc-950/80 border border-zinc-800/80">
+            <!-- 1. ผู้ติดตาม (Clickable) -->
+            <button type="button" onclick="openFollowsModal('followers')" class="flex-1 text-center min-w-0 px-2 py-1.5 rounded-xl hover:bg-zinc-900/80 active:scale-95 transition cursor-pointer group" title="คลิกดูรายชื่อผู้ติดตาม">
+                <span class="block text-base md:text-lg font-black text-white leading-tight font-mono group-hover:text-emerald-400 transition" id="stat-followers-count">{{ followers_count }}</span>
+                <span class="block text-[11px] font-medium text-zinc-400 group-hover:text-zinc-200 mt-0.5 truncate flex items-center justify-center gap-0.5">
+                    <span>ผู้ติดตาม</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3 text-zinc-500 group-hover:text-emerald-400 transition"></i>
+                </span>
+            </button>
             <div class="w-px h-6 bg-zinc-800/80 shrink-0"></div>
-            <div class="flex-1 text-center min-w-0 px-1">
-                <span class="block text-base md:text-lg font-black text-white leading-tight font-mono">{{ following_count }}</span>
-                <span class="block text-[11px] font-medium text-zinc-400 mt-0.5 truncate">กำลังติดตาม</span>
-            </div>
+            <!-- 2. กำลังติดตาม (Clickable) -->
+            <button type="button" onclick="openFollowsModal('following')" class="flex-1 text-center min-w-0 px-2 py-1.5 rounded-xl hover:bg-zinc-900/80 active:scale-95 transition cursor-pointer group" title="คลิกดูรายชื่อที่กำลังติดตาม">
+                <span class="block text-base md:text-lg font-black text-white leading-tight font-mono group-hover:text-emerald-400 transition" id="stat-following-count">{{ following_count }}</span>
+                <span class="block text-[11px] font-medium text-zinc-400 group-hover:text-zinc-200 mt-0.5 truncate flex items-center justify-center gap-0.5">
+                    <span>กำลังติดตาม</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3 text-zinc-500 group-hover:text-emerald-400 transition"></i>
+                </span>
+            </button>
             <div class="w-px h-6 bg-zinc-800/80 shrink-0"></div>
-            <div class="flex-1 text-center min-w-0 px-1">
+            <div class="flex-1 text-center min-w-0 px-2 py-1.5">
                 <span class="block text-base md:text-lg font-black text-white leading-tight font-mono">{{ total_posts }}</span>
                 <span class="block text-[11px] font-medium text-zinc-400 mt-0.5 truncate">โพสต์</span>
             </div>
             <div class="w-px h-6 bg-zinc-800/80 shrink-0"></div>
-            <div class="flex-1 text-center min-w-0 px-1">
+            <div class="flex-1 text-center min-w-0 px-2 py-1.5">
                 <span class="block text-base md:text-lg font-black text-white leading-tight font-mono">{{ total_likes_received }}</span>
                 <span class="block text-[11px] font-medium text-zinc-400 mt-0.5 truncate">ถูกใจ</span>
             </div>
@@ -600,5 +608,237 @@ function switchProfileTab(tabName) {
     }
 }
 window.switchProfileTab = switchProfileTab;
+
+// =============================================================================
+// Followers / Following Dynamic Interactive Modal
+// =============================================================================
+let followsData = { followers: [], following: [] };
+let currentFollowsTab = 'followers';
+const targetProfileUsername = "{{ target_user.username }}";
+
+async function openFollowsModal(tab = 'followers') {
+    currentFollowsTab = tab;
+    const modal = document.getElementById('follows-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    switchFollowsTab(tab);
+    await loadFollowsData();
+}
+
+async function loadFollowsData() {
+    const container = document.getElementById('follows-list-container');
+    try {
+        const res = await fetch(`/api/profile/${targetProfileUsername}/follows/`);
+        const data = await res.json();
+        if (data.status === 'ok') {
+            followsData = data;
+            const bFollowers = document.getElementById('follows-badge-followers');
+            const bFollowing = document.getElementById('follows-badge-following');
+            const sFollowers = document.getElementById('stat-followers-count');
+            const sFollowing = document.getElementById('stat-following-count');
+            if (bFollowers) bFollowers.textContent = data.followers_count;
+            if (bFollowing) bFollowing.textContent = data.following_count;
+            if (sFollowers) sFollowers.textContent = data.followers_count;
+            if (sFollowing) sFollowing.textContent = data.following_count;
+            renderFollowsList();
+        }
+    } catch (err) {
+        if (container) {
+            container.innerHTML = '<div class="py-12 text-center text-xs text-rose-400">ไม่สามารถโหลดข้อมูลผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง</div>';
+        }
+    }
+}
+
+function switchFollowsTab(tab) {
+    currentFollowsTab = tab;
+    const btnFollowers = document.getElementById('follows-tab-btn-followers');
+    const btnFollowing = document.getElementById('follows-tab-btn-following');
+    const searchInput = document.getElementById('follows-search-input');
+    if (searchInput) searchInput.value = '';
+
+    if (tab === 'followers') {
+        if (btnFollowers) btnFollowers.className = "flex-1 py-1.5 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 bg-white text-black shadow-md";
+        if (btnFollowing) btnFollowing.className = "flex-1 py-1.5 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white";
+    } else {
+        if (btnFollowing) btnFollowing.className = "flex-1 py-1.5 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 bg-white text-black shadow-md";
+        if (btnFollowers) btnFollowers.className = "flex-1 py-1.5 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white";
+    }
+    renderFollowsList();
+}
+
+function filterFollowsList() {
+    renderFollowsList();
+}
+
+function renderFollowsList() {
+    const container = document.getElementById('follows-list-container');
+    if (!container) return;
+
+    const searchVal = (document.getElementById('follows-search-input')?.value || '').toLowerCase().trim();
+    const list = followsData[currentFollowsTab] || [];
+    
+    const filtered = list.filter(u => 
+        u.username.toLowerCase().includes(searchVal) || 
+        u.display_name.toLowerCase().includes(searchVal)
+    );
+
+    if (filtered.length === 0) {
+        const emptyMsg = currentFollowsTab === 'followers' 
+            ? 'ยังไม่มีผู้ติดตามในขณะนี้' 
+            : 'ยังไม่ได้ติดตามใครในขณะนี้';
+        container.innerHTML = `
+            <div class="py-12 text-center text-zinc-500 text-xs space-y-2">
+                <i data-lucide="users" class="w-8 h-8 text-zinc-600 mx-auto"></i>
+                <p class="font-medium">${emptyMsg}</p>
+            </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+    }
+
+    let html = '';
+    filtered.forEach(u => {
+        const avatarHtml = u.avatar_url 
+            ? `<img src="${u.avatar_url}" alt="${u.display_name}" class="w-10 h-10 rounded-2xl object-cover bg-black">`
+            : `<div class="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-sm font-black text-white">${u.initial}</div>`;
+        
+        const adminBadge = u.is_staff ? `<span class="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[9px] font-bold shrink-0">Admin</span>` : '';
+
+        let actionBtnHtml = '';
+        if (u.is_self) {
+            actionBtnHtml = `<span class="px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 text-[11px] font-bold shrink-0">คุณ</span>`;
+        } else {
+            const isF = u.is_following;
+            const btnClass = isF 
+                ? "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700" 
+                : "bg-white hover:bg-zinc-200 text-black shadow-md shadow-white/5";
+            const btnText = isF ? "กำลังติดตาม" : "ติดตาม";
+            actionBtnHtml = `
+                <button type="button" onclick="toggleFollowInModal('${u.username}', this)" class="px-3.5 py-1.5 rounded-full text-xs font-bold transition active:scale-95 shadow-sm shrink-0 ${btnClass}">
+                    ${btnText}
+                </button>
+            `;
+        }
+
+        html += `
+            <div class="p-2.5 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800/60 transition flex items-center justify-between gap-3">
+                <a href="/profile/${u.username}/" class="flex items-center gap-3 min-w-0 flex-1 group">
+                    <div class="shrink-0 p-0.5 rounded-2xl bg-zinc-800 border border-zinc-700">
+                        ${avatarHtml}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5 truncate">
+                            <h4 class="font-bold text-xs text-white group-hover:text-emerald-400 transition truncate">${u.display_name}</h4>
+                            ${adminBadge}
+                        </div>
+                        <p class="text-[11px] text-zinc-400 font-mono truncate">@${u.username}</p>
+                    </div>
+                </a>
+                ${actionBtnHtml}
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    if (window.lucide) lucide.createIcons();
+}
+
+function closeFollowsModal() {
+    const modal = document.getElementById('follows-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+async function toggleFollowInModal(username, btn) {
+    btn.disabled = true;
+    try {
+        const csrftoken = document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
+        const res = await fetch(`/profile/${username}/follow/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        const data = await res.json();
+        if (data && data.is_following !== undefined) {
+            // Update local state
+            ['followers', 'following'].forEach(key => {
+                const found = followsData[key]?.find(u => u.username === username);
+                if (found) found.is_following = data.is_following;
+            });
+            renderFollowsList();
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('follows-modal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeFollowsModal();
+        });
+    }
+});
+
+window.openFollowsModal = openFollowsModal;
+window.closeFollowsModal = closeFollowsModal;
+window.switchFollowsTab = switchFollowsTab;
+window.filterFollowsList = filterFollowsList;
+window.toggleFollowInModal = toggleFollowInModal;
 </script>
+
+<!-- Followers / Following Interactive Modal -->
+<div id="follows-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4 transition-all duration-200">
+    <div class="max-w-md w-full glass-card rounded-[2.25rem] border border-white/10 shadow-2xl overflow-hidden animate-scale-up flex flex-col max-h-[85vh] bg-zinc-950/95">
+        <!-- Modal Header & Tabs -->
+        <div class="p-4 border-b border-zinc-800/80 space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-black text-white flex items-center gap-2">
+                    <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i>
+                    <span>เครือข่ายนักเดินทาง (@{{ target_user.username }})</span>
+                </h3>
+                <button type="button" onclick="closeFollowsModal()" class="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Tab Toggle Buttons -->
+            <div class="flex items-center p-1 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs font-bold">
+                <button type="button" id="follows-tab-btn-followers" onclick="switchFollowsTab('followers')" class="flex-1 py-1.5 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 bg-white text-black shadow-md">
+                    <span>ผู้ติดตาม</span>
+                    <span id="follows-badge-followers" class="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-200 text-black font-mono font-black">{{ followers_count }}</span>
+                </button>
+                <button type="button" id="follows-tab-btn-following" onclick="switchFollowsTab('following')" class="flex-1 py-1.5 px-3 rounded-xl transition text-center flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white">
+                    <span>กำลังติดตาม</span>
+                    <span id="follows-badge-following" class="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300 font-mono font-black">{{ following_count }}</span>
+                </button>
+            </div>
+
+            <!-- Quick Filter Search Bar -->
+            <div class="relative">
+                <input type="text" id="follows-search-input" oninput="filterFollowsList()" placeholder="ค้นหาชื่อ หรือ @username..." class="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-white placeholder-zinc-500 text-xs focus:ring-1 focus:ring-emerald-500/50 outline-none transition font-medium shadow-inner">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            </div>
+        </div>
+
+        <!-- Modal Body (Scrollable User List) -->
+        <div id="follows-list-container" class="p-3 space-y-2 overflow-y-auto flex-1 min-h-[220px]">
+            <div class="py-12 text-center text-xs text-zinc-500 font-mono flex flex-col items-center gap-2">
+                <div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                <span>กำลังโหลดรายชื่อ...</span>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
+

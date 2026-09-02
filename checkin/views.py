@@ -17,7 +17,7 @@ from django.http import JsonResponse, HttpResponseForbidden
 from django.core.mail import send_mail
 from .models import Post, PostImage, Comment, Follow, Notification, Profile, Report, PlaceReview, Province, Badge, UserBadge, PasswordResetOTP
 from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm, ForgotPasswordRequestForm, VerifyOTPOnlyForm, SetNewPasswordForm, DeleteAccountForm
-from .utils import calculate_haversine_distance, get_live_weather
+from .utils import calculate_haversine_distance, get_live_weather, validate_image_file, upload_post_image_dedup, upload_user_avatar
 
 
 
@@ -396,12 +396,16 @@ def create_post(request):
 
         if not uploaded_files:
             form.add_error('image', 'กรุณาเลือกรูปภาพอย่างน้อย 1 รูปภาพ')
+        else:
+            for f in uploaded_files:
+                is_valid, err_msg = validate_image_file(f, max_size_mb=15)
+                if not is_valid:
+                    form.add_error('image', err_msg)
+                    break
 
         if form.is_valid():
             post = form.save(commit=False)
             post.user = request.user
-            if uploaded_files and not post.image:
-                post.image = uploaded_files[0]
 
             # Auto-detect province if provided or matching location
             prov_id = request.POST.get('province')
@@ -413,21 +417,23 @@ def create_post(request):
             if not post.province:
                 post.province = detect_province_from_location(post.location_name, post.tags)
 
+            # แนวทางที่ 1: อัปโหลดรูปภาพพร้อมระบบ Content Hash Deduplication
+            cloudinary_ids = []
+            for img_file in uploaded_files:
+                c_id = upload_post_image_dedup(img_file)
+                cloudinary_ids.append(c_id)
+
+            if cloudinary_ids:
+                post.image = cloudinary_ids[0]
+
             post.save()
 
             # บันทึกรูปภาพทั้งหมดลงใน PostImage
-            if uploaded_files:
-                for idx, img_file in enumerate(uploaded_files):
-                    PostImage.objects.create(
-                        post=post,
-                        image=img_file,
-                        order=idx
-                    )
-            elif post.image:
+            for idx, c_id in enumerate(cloudinary_ids):
                 PostImage.objects.create(
                     post=post,
-                    image=post.image,
-                    order=0
+                    image=c_id,
+                    order=idx
                 )
 
             # บันทึกผู้ร่วมทริปที่ถูกแท็ก (Tagged Co-Travelers)
@@ -480,14 +486,22 @@ def post_edit(request, pk):
         form = PostEditForm(request.POST, request.FILES, instance=post)
         uploaded_files = request.FILES.getlist('images') or ([request.FILES['image']] if 'image' in request.FILES else [])
 
+        if uploaded_files:
+            for f in uploaded_files:
+                is_valid, err_msg = validate_image_file(f, max_size_mb=15)
+                if not is_valid:
+                    form.add_error('image', err_msg)
+                    break
+
         if form.is_valid():
             post = form.save()
             if uploaded_files:
                 current_count = post.images.count()
                 for idx, img_file in enumerate(uploaded_files):
+                    c_id = upload_post_image_dedup(img_file)
                     PostImage.objects.create(
                         post=post,
-                        image=img_file,
+                        image=c_id,
                         order=current_count + idx
                     )
 
@@ -631,14 +645,16 @@ def settings_profile_view(request):
             profile.display_name = form.cleaned_data.get('display_name')
             profile.bio = form.cleaned_data.get('bio')
             if 'avatar' in request.FILES and request.FILES['avatar']:
-                cloud_key = getattr(settings, 'CLOUDINARY_API_KEY', None) or os.environ.get('CLOUDINARY_API_KEY')
-                if cloud_key and cloud_key not in ('your_api_key', 'dummy_api_key'):
-                    try:
-                        profile.avatar = request.FILES['avatar']
-                        profile.save()
-                    except Exception:
-                        pass
-            profile.save(update_fields=['display_name', 'bio', 'updated_at'])
+                avatar_file = request.FILES['avatar']
+                is_valid, err_msg = validate_image_file(avatar_file, max_size_mb=5)
+                if not is_valid:
+                    messages.error(request, err_msg)
+                    return render(request, 'checkin/settings_profile.html', {'form': form, 'profile': profile})
+                # แนวทางที่ 2: ผูกชื่อรูปโปรไฟล์กับ User ID
+                cloud_avatar = upload_user_avatar(avatar_file, request.user.id)
+                profile.avatar = cloud_avatar
+
+            profile.save(update_fields=['display_name', 'bio', 'avatar', 'updated_at'])
 
             request.user.first_name = form.cleaned_data.get('first_name')
             request.user.last_name = form.cleaned_data.get('last_name')
@@ -910,16 +926,19 @@ def register_view(request):
 
 def login_view(request):
     """
-    หน้าเข้าสู่ระบบ (รองรับทั้งการกรอก Username หรือ Email)
+    หน้าเข้าสู่ระบบสำหรับสมาชิกทั่วไป (Member Login)
+    บัญชีระดับ Admin / Staff จะไม่สามารถเข้าสู่ระบบผ่านหน้านี้ได้ (เพื่อความปลอดภัยและแยกส่วนการทำงาน)
     """
     if request.user.is_authenticated:
+        if request.user.is_staff or request.user.is_superuser:
+            return redirect('admin_dashboard')
         return redirect('post_list')
         
     if request.method == 'POST':
         login_input = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
 
-        # รองรับการเข้าสู่ระบบด้วย อีเมล (ถ้ามีเครื่องหมาย @ หรือตรงกับอีเมลในระบบ)
+        # รองรับการเข้าสู่ระบบด้วย อีเมล
         if '@' in login_input:
             user_by_email = User.objects.filter(email__iexact=login_input).first()
             if user_by_email:
@@ -927,9 +946,15 @@ def login_view(request):
 
         user = authenticate(username=login_input, password=password)
         if user is not None:
+            # หากเป็น Admin หรือ Staff จะไม่อนุญาตให้ล็อกอินผ่านหน้าสมาชิกทั่วไป (ทำเหมือนไม่มีรหัสนั้นอยู่)
+            if user.is_staff or user.is_superuser:
+                messages.error(request, 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง')
+                return render(request, 'checkin/login.html', {'form': AuthenticationForm(), 'next': request.GET.get('next', '')})
+
             if hasattr(user, 'profile') and user.profile.is_banned:
                 messages.error(request, 'บัญชีของคุณถูกระงับการใช้งานเนื่องจากละเมิดกฎชุมชน กรุณาติดต่อผู้ดูแลระบบ')
                 return redirect('login')
+
             login(request, user)
             display_name = user.profile.get_display_name() if hasattr(user, 'profile') else user.username
             messages.success(request, f'ยินดีต้อนรับกลับ, {display_name}!')
@@ -941,6 +966,48 @@ def login_view(request):
         form = AuthenticationForm()
 
     return render(request, 'checkin/login.html', {'form': form, 'next': request.GET.get('next', '')})
+
+
+def admin_login_view(request):
+    """
+    หน้าเข้าสู่ระบบสำหรับผู้ดูแลระบบโดยเฉพาะ (Exclusive Admin / Staff Security Portal)
+    ไม่อนุญาตให้สมาชิกทั่วไป (Member) เข้าใช้งานผ่านหน้านี้
+    """
+    if request.user.is_authenticated:
+        if request.user.is_staff or request.user.is_superuser:
+            return redirect('admin_dashboard')
+        messages.error(request, 'คุณไม่มีสิทธิ์เข้าถึงส่วนผู้ดูแลระบบ')
+        return redirect('post_list')
+
+    if request.method == 'POST':
+        login_input = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+
+        if '@' in login_input:
+            user_by_email = User.objects.filter(email__iexact=login_input).first()
+            if user_by_email:
+                login_input = user_by_email.username
+
+        user = authenticate(username=login_input, password=password)
+        if user is not None:
+            # ตรวจสอบสิทธิ์เฉพาะ Staff หรือ Superuser เท่านั้น
+            if not user.is_staff and not user.is_superuser:
+                messages.error(request, 'สิทธิ์การเข้าถึงถูกปฏิเสธ: หน้านี้สำหรับผู้ดูแลระบบเท่านั้น (Staff Only)')
+                return render(request, 'checkin/admin_login.html', {'next': request.GET.get('next', '')})
+
+            if hasattr(user, 'profile') and user.profile.is_banned:
+                messages.error(request, 'บัญชีผู้ดูแลนี้ถูกระงับการใช้งาน กรุณาติดต่อ Super Admin')
+                return redirect('admin_login')
+
+            login(request, user)
+            messages.success(request, f'ยินดีต้อนรับเข้าสู่ระบบจัดการผู้ดูแล, ท่านผู้ดูแล @{user.username} 🛡️')
+            next_url = request.POST.get('next') or request.GET.get('next') or 'admin_dashboard'
+            return redirect(next_url)
+        else:
+            messages.error(request, 'ชื่อผู้ใช้ หรือรหัสผ่านผู้ดูแลระบบไม่ถูกต้อง')
+    
+    return render(request, 'checkin/admin_login.html', {'next': request.GET.get('next', '')})
+
 
 
 def forgot_password_view(request):
@@ -1723,7 +1790,7 @@ def seed_mock_reports_if_empty():
     )
 
 
-@login_required(login_url='login')
+@login_required(login_url='admin_login')
 def admin_dashboard(request):
     """
     หน้า Admin Dashboard สไตล์ Dark Glassmorphism
@@ -1897,7 +1964,7 @@ def report_item(request):
     return redirect('post_list')
 
 
-@login_required(login_url='login')
+@login_required(login_url='admin_login')
 @require_POST
 def admin_resolve_report(request, report_id):
     """
@@ -1946,7 +2013,7 @@ def admin_resolve_report(request, report_id):
     return redirect('admin_dashboard')
 
 
-@login_required(login_url='login')
+@login_required(login_url='admin_login')
 @require_POST
 def admin_toggle_ban_user(request, user_id):
     """
@@ -2213,4 +2280,64 @@ def user_badges_api(request, username):
         'total_badges': len(all_badges),
         'badges': badges_list
     })
+
+
+def user_follows_api(request, username):
+    """
+    API คืนค่ารายการผู้ติดตาม (Followers) และ กำลังติดตาม (Following) ของผู้ใช้งาน
+    พร้อมสถานะว่า request.user กำลังติดตามผู้ใช้แต่ละคนหรือไม่
+    """
+    target_user = get_object_or_404(User, username=username)
+    viewer = request.user if request.user.is_authenticated else None
+    viewer_following_ids = set(viewer.following_set.values_list('following_id', flat=True)) if viewer else set()
+
+    # 1. ผู้ติดตาม (Followers)
+    followers_records = Follow.objects.filter(following=target_user).select_related('follower', 'follower__profile').order_by('-created_at')
+    followers_data = []
+    for f in followers_records:
+        u = f.follower
+        avatar_url = u.profile.get_avatar_url() if hasattr(u, 'profile') else None
+        display_name = u.profile.get_display_name() if hasattr(u, 'profile') else u.username
+        bio = u.profile.bio if hasattr(u, 'profile') else ''
+        followers_data.append({
+            'id': u.id,
+            'username': u.username,
+            'display_name': display_name,
+            'avatar_url': avatar_url,
+            'initial': u.profile.get_initial() if hasattr(u, 'profile') else u.username[:1].upper(),
+            'bio': bio or '',
+            'is_following': u.id in viewer_following_ids,
+            'is_self': bool(viewer and u.id == viewer.id),
+            'is_staff': u.is_staff or u.is_superuser,
+        })
+
+    # 2. กำลังติดตาม (Following)
+    following_records = Follow.objects.filter(follower=target_user).select_related('following', 'following__profile').order_by('-created_at')
+    following_data = []
+    for f in following_records:
+        u = f.following
+        avatar_url = u.profile.get_avatar_url() if hasattr(u, 'profile') else None
+        display_name = u.profile.get_display_name() if hasattr(u, 'profile') else u.username
+        bio = u.profile.bio if hasattr(u, 'profile') else ''
+        following_data.append({
+            'id': u.id,
+            'username': u.username,
+            'display_name': display_name,
+            'avatar_url': avatar_url,
+            'initial': u.profile.get_initial() if hasattr(u, 'profile') else u.username[:1].upper(),
+            'bio': bio or '',
+            'is_following': u.id in viewer_following_ids,
+            'is_self': bool(viewer and u.id == viewer.id),
+            'is_staff': u.is_staff or u.is_superuser,
+        })
+
+    return JsonResponse({
+        'status': 'ok',
+        'target_username': target_user.username,
+        'followers_count': len(followers_data),
+        'following_count': len(following_data),
+        'followers': followers_data,
+        'following': following_data,
+    })
+
 

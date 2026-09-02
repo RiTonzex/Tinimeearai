@@ -4,9 +4,10 @@ from cloudinary.models import CloudinaryField
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models import Avg, Count, F
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 import os
+from .utils import delete_cloudinary_asset
 
 class Post(models.Model):
     """
@@ -871,5 +872,82 @@ class PasswordResetOTP(models.Model):
             email=email,
             otp_code=code
         )
+
+
+# =============================================================================
+# Cloudinary Automatic File Cleanup Signals
+# =============================================================================
+
+@receiver(pre_save, sender=Post)
+def auto_delete_old_post_image_on_update(sender, instance, **kwargs):
+    """
+    ลบรูปเดิมบน Cloudinary เมื่อผู้ใช้แก้ไขและอัปโหลดรูปใหม่ทับรูปเดิมใน Post
+    """
+    if not instance.pk:
+        return
+    try:
+        old_post = sender.objects.get(pk=instance.pk)
+        if old_post.image and str(old_post.image) != str(instance.image):
+            delete_cloudinary_asset(old_post.image)
+    except sender.DoesNotExist:
+        pass
+
+
+@receiver(post_delete, sender=Post)
+def auto_delete_post_image_on_delete(sender, instance, **kwargs):
+    """
+    ลบรูปภาพหลักบน Cloudinary ทันทีเมื่อโพสต์ถูกลบออกจากระบบ
+    """
+    if instance.image:
+        delete_cloudinary_asset(instance.image)
+
+
+@receiver(pre_save, sender=PostImage)
+def auto_delete_old_postimage_on_update(sender, instance, **kwargs):
+    """
+    ลบรูปภาพเพิ่มเติมเดิมบน Cloudinary เมื่อมีการแก้ไข/เปลี่ยนรูปใน PostImage
+    """
+    if not instance.pk:
+        return
+    try:
+        old_post_img = sender.objects.get(pk=instance.pk)
+        if old_post_img.image and str(old_post_img.image) != str(instance.image):
+            delete_cloudinary_asset(old_post_img.image)
+    except sender.DoesNotExist:
+        pass
+
+
+@receiver(post_delete, sender=PostImage)
+def auto_delete_postimage_on_delete(sender, instance, **kwargs):
+    """
+    ลบรูปภาพเพิ่มเติมบน Cloudinary ทันทีเมื่อ PostImage ถูกลบ
+    """
+    if instance.image:
+        delete_cloudinary_asset(instance.image)
+
+
+@receiver(pre_save, sender=Profile)
+def auto_delete_old_avatar_on_update(sender, instance, **kwargs):
+    """
+    ลบรูปโปรไฟล์เดิมบน Cloudinary เมื่อผู้ใช้อัปโหลดรูป Avatar ใหม่
+    """
+    if not instance.pk:
+        return
+    try:
+        old_profile = sender.objects.get(pk=instance.pk)
+        if old_profile.avatar and str(old_profile.avatar) != str(instance.avatar):
+            delete_cloudinary_asset(old_profile.avatar)
+    except sender.DoesNotExist:
+        pass
+
+
+@receiver(post_delete, sender=Profile)
+def auto_delete_avatar_on_delete(sender, instance, **kwargs):
+    """
+    ลบรูปโปรไฟล์บน Cloudinary เมื่อ Profile ถูกลบ
+    """
+    if instance.avatar:
+        delete_cloudinary_asset(instance.avatar)
+
 
 

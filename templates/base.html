@@ -342,7 +342,7 @@
     <!-- Mobile Bottom App Dock (Clean Minimalist Luxury Dock) -->
     {% if user.is_authenticated %}
     <nav class="fixed bottom-3 left-4 right-4 z-40 sm:hidden glass-header rounded-3xl border border-white/10 shadow-2xl safe-bottom">
-        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-6{% else %}grid-cols-5{% endif %} items-center h-16 px-1">
+        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-7{% else %}grid-cols-5{% endif %} items-center h-16 px-1">
             <!-- 1. สำรวจ -->
             <div class="flex items-center justify-center">
                 <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="สำรวจ">
@@ -359,6 +359,16 @@
                 </a>
             </div>
 
+            {% if user.is_staff or user.is_superuser %}
+            <!-- 3. ตั้งค่า (แสดงเฉพาะ Admin เพื่อความสมดุล ซ้าย 3 ปุ่ม | เช็คอิน | ขวา 3 ปุ่ม) -->
+            <div class="flex items-center justify-center">
+                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="ตั้งค่า">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="text-[9px] mt-1 font-medium">ตั้งค่า</span>
+                </a>
+            </div>
+            {% endif %}
+
             <!-- CENTER STANDOUT ACTION BUTTON: เช็คอิน (+) Pure White Luxury Style -->
             <div class="flex items-center justify-center relative">
                 <a href="{% url 'create_post' %}" class="flex flex-col items-center justify-center -translate-y-4 group transition active:scale-90" title="สร้างโพสต์เช็คอินใหม่">
@@ -369,7 +379,7 @@
                 </a>
             </div>
 
-            <!-- 3. คอลเลกชัน -->
+            <!-- คอลเลกชัน -->
             <div class="flex items-center justify-center">
                 <a href="{% url 'saved_collections' %}" class="flex flex-col items-center justify-center {% if '/planner/collections' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="คอลเลกชัน">
                     <i data-lucide="bookmark" class="w-5 h-5"></i>
@@ -377,7 +387,7 @@
                 </a>
             </div>
 
-            <!-- 4. โปรไฟล์สาธารณะ -->
+            <!-- โปรไฟล์สาธารณะ -->
             <div class="flex items-center justify-center">
                 <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="โปรไฟล์">
                     <div class="w-5 h-5 rounded-full overflow-hidden border {% if '/profile/' in request.path and user.username in request.path %}border-white ring-1 ring-white/40{% else %}border-zinc-600{% endif %} flex items-center justify-center bg-zinc-900 shadow-sm">
@@ -392,7 +402,7 @@
             </div>
 
             {% if user.is_staff or user.is_superuser %}
-            <!-- 5. แอดมิน (สำหรับ Staff) -->
+            <!-- แอดมิน (สำหรับ Staff) -->
             <div class="flex items-center justify-center">
                 <a href="{% url 'admin_dashboard' %}" class="flex flex-col items-center justify-center {% if '/admin-dashboard' in request.path %}text-rose-400 font-bold{% else %}text-rose-400/70 hover:text-rose-300{% endif %} active:scale-90 transition min-w-[36px] py-1" title="แอดมิน">
                     <i data-lucide="shield-alert" class="w-5 h-5"></i>
@@ -630,8 +640,8 @@
             }
         });
     </script>
-    <!-- PWA Install Floating Compact Badge (Small Corner Pill) -->
-    <div id="pwa-install-banner" class="fixed bottom-20 md:bottom-6 right-4 z-40 glass-card p-1.5 pl-2.5 pr-2 rounded-full border border-white/20 shadow-2xl hidden items-center gap-2.5 animate-slide-up backdrop-blur-2xl bg-black/85 text-xs">
+    <!-- PWA Install Floating Compact Badge (Small Corner Pill - Bottom Left with 5s Auto-dismiss) -->
+    <div id="pwa-install-banner" class="fixed bottom-20 md:bottom-8 left-4 md:left-8 z-40 glass-card p-1.5 pl-2.5 pr-2 rounded-full border border-white/20 shadow-2xl hidden items-center gap-2.5 animate-slide-up backdrop-blur-2xl bg-black/85 text-xs transition-opacity duration-300">
         <div class="flex items-center gap-2 cursor-pointer" onclick="handlePwaInstallClick()">
             <div class="w-6 h-6 rounded-lg bg-black border border-zinc-700 p-0.5 shadow shrink-0 overflow-hidden">
                 <img src="{% static 'icons/icon-192.png' %}" alt="App Icon" class="w-full h-full object-cover rounded-[5px]">
@@ -646,6 +656,27 @@
         <button type="button" onclick="dismissPwaBanner()" class="text-zinc-500 hover:text-white p-1 rounded-full hover:bg-zinc-800 transition" title="ปิด">
             <i data-lucide="x" class="w-3.5 h-3.5"></i>
         </button>
+    </div>
+
+    <!-- Cookie Consent (PDPA) Floating Card -->
+    <div id="cookie-consent-banner" class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-50 glass-card p-4 rounded-2xl border border-white/20 shadow-2xl hidden flex-col sm:flex-row items-start sm:items-center gap-3 backdrop-blur-2xl bg-zinc-950/90 text-xs max-w-md animate-slide-up">
+        <div class="flex items-start gap-3">
+            <span class="text-xl shrink-0">🍪</span>
+            <div class="space-y-0.5">
+                <h4 class="font-bold text-white text-xs">การใช้งานคุกกี้ (Cookies Policy)</h4>
+                <p class="text-[11px] text-zinc-300 leading-relaxed">
+                    เราใช้คุกกี้เพื่อพัฒนาประสบการณ์การใช้งานและรักษาความปลอดภัยของระบบ
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0">
+            <button type="button" onclick="acceptCookieConsent()" class="w-full sm:w-auto px-4 py-1.5 rounded-full bg-white hover:bg-zinc-200 text-black font-black text-xs transition shadow active:scale-95 text-center">
+                ยอมรับ
+            </button>
+            <button type="button" onclick="dismissCookieConsent()" class="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition" title="ปิด">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
     </div>
 
     <!-- iOS Safari "Add to Home Screen" Instruction Modal -->
@@ -678,9 +709,10 @@
         </div>
     </div>
 
-    <!-- PWA Service Worker & Install Handler -->
+    <!-- PWA Service Worker, Auto-dismiss & Cookie Consent Handler -->
     <script>
         let deferredPwaPrompt = null;
+        let pwaAutoDismissTimer = null;
 
         // Check if running as installed standalone PWA
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -739,8 +771,8 @@
         function showPwaBannerIfEligible() {
             if (isAlreadyInstalled) return;
             const dismissedTime = localStorage.getItem('pwa_banner_dismissed_time');
-            if (dismissedTime && (Date.now() - parseInt(dismissedTime, 10)) < 3 * 24 * 60 * 60 * 1000) {
-                // Dismissed within last 3 days
+            if (dismissedTime && (Date.now() - parseInt(dismissedTime, 10)) < 24 * 60 * 60 * 1000) {
+                // Dismissed within last 24 hours
                 return;
             }
             const banner = document.getElementById('pwa-install-banner');
@@ -748,19 +780,39 @@
                 banner.classList.remove('hidden');
                 banner.classList.add('flex');
                 if (window.lucide) lucide.createIcons();
+
+                // Auto-dismiss after 5 seconds
+                if (pwaAutoDismissTimer) clearTimeout(pwaAutoDismissTimer);
+                pwaAutoDismissTimer = setTimeout(() => {
+                    dismissPwaBanner(false);
+                }, 5000);
+
+                // Pause auto-dismiss if user hovers over banner
+                banner.addEventListener('mouseenter', () => {
+                    if (pwaAutoDismissTimer) clearTimeout(pwaAutoDismissTimer);
+                });
+                banner.addEventListener('mouseleave', () => {
+                    pwaAutoDismissTimer = setTimeout(() => {
+                        dismissPwaBanner(false);
+                    }, 3000);
+                });
             }
         }
 
-        function dismissPwaBanner() {
+        function dismissPwaBanner(saveTimestamp = true) {
+            if (pwaAutoDismissTimer) clearTimeout(pwaAutoDismissTimer);
             const banner = document.getElementById('pwa-install-banner');
             if (banner) {
                 banner.classList.add('hidden');
                 banner.classList.remove('flex');
             }
-            localStorage.setItem('pwa_banner_dismissed_time', Date.now().toString());
+            if (saveTimestamp) {
+                localStorage.setItem('pwa_banner_dismissed_time', Date.now().toString());
+            }
         }
 
         function handlePwaInstallClick() {
+            if (pwaAutoDismissTimer) clearTimeout(pwaAutoDismissTimer);
             if (deferredPwaPrompt) {
                 deferredPwaPrompt.prompt();
                 deferredPwaPrompt.userChoice.then((choiceResult) => {
@@ -790,13 +842,50 @@
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
             }
-            dismissPwaBanner();
+            dismissPwaBanner(true);
         }
 
         // Trigger check for iOS after slight delay
         if (isIos && !isAlreadyInstalled) {
-            setTimeout(showPwaBannerIfEligible, 2000);
+            setTimeout(showPwaBannerIfEligible, 1500);
         }
+
+        // =========================================================================
+        // Cookie Consent (PDPA) Management
+        // =========================================================================
+        function initCookieConsent() {
+            const consent = localStorage.getItem('cookie_consent_accepted');
+            if (!consent) {
+                setTimeout(() => {
+                    const cookieBanner = document.getElementById('cookie-consent-banner');
+                    if (cookieBanner) {
+                        cookieBanner.classList.remove('hidden');
+                        cookieBanner.classList.add('flex');
+                        if (window.lucide) lucide.createIcons();
+                    }
+                }, 800);
+            }
+        }
+
+        function acceptCookieConsent() {
+            localStorage.setItem('cookie_consent_accepted', 'true');
+            const cookieBanner = document.getElementById('cookie-consent-banner');
+            if (cookieBanner) {
+                cookieBanner.classList.add('hidden');
+                cookieBanner.classList.remove('flex');
+            }
+        }
+
+        function dismissCookieConsent() {
+            localStorage.setItem('cookie_consent_accepted', 'dismissed');
+            const cookieBanner = document.getElementById('cookie-consent-banner');
+            if (cookieBanner) {
+                cookieBanner.classList.add('hidden');
+                cookieBanner.classList.remove('flex');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initCookieConsent);
     </script>
     <!-- Custom Main JS with Cache Busting -->
     <script src="{% static 'js/thailand_map.js' %}?v=20260902_platinum_harmony"></script>
