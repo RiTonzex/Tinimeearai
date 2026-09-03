@@ -1901,7 +1901,7 @@ def admin_dashboard(request):
             Q(profile__display_name__icontains=clean_q)
         ).distinct()
 
-    user_paginator = Paginator(users_qs, 10)
+    user_paginator = Paginator(users_qs, 9)
     user_page_number = request.GET.get('user_page', 1)
     users_page = user_paginator.get_page(user_page_number)
 
