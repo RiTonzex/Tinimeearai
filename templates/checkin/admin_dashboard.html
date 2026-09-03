@@ -18,36 +18,51 @@
     }
 
     .glass-card-accent {
-        background: radial-gradient(120% 120% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, rgba(12, 12, 16, 0.8) 100%);
+        background: radial-gradient(120% 120% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, rgba(12, 12, 16, 0.85) 100%);
         backdrop-filter: blur(16px);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease;
+        will-change: transform;
     }
     
     .glass-card-accent:hover {
-        border-color: rgba(255, 255, 255, 0.25);
-        transform: translateY(-3px);
-        box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.8), 0 0 25px -5px rgba(255, 255, 255, 0.08);
+        transform: translateY(-8px) scale(1.018);
     }
 
     .neon-border-rose {
         border-color: rgba(244, 63, 94, 0.4);
         box-shadow: 0 0 15px rgba(244, 63, 94, 0.15);
     }
+    .neon-border-rose:hover {
+        border-color: rgba(244, 63, 94, 0.7);
+        box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.8), 0 0 30px rgba(244, 63, 94, 0.35);
+    }
 
     .neon-border-white {
         border-color: rgba(255, 255, 255, 0.25);
         box-shadow: 0 0 15px rgba(255, 255, 255, 0.08);
+    }
+    .neon-border-indigo:hover {
+        border-color: rgba(99, 102, 241, 0.7);
+        box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.35);
     }
 
     .neon-border-emerald {
         border-color: rgba(16, 185, 129, 0.4);
         box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
     }
+    .neon-border-emerald:hover {
+        border-color: rgba(16, 185, 129, 0.7);
+        box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.8), 0 0 30px rgba(16, 185, 129, 0.35);
+    }
 
     .neon-border-amber {
         border-color: rgba(245, 158, 11, 0.4);
         box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
+    }
+    .neon-border-amber:hover {
+        border-color: rgba(245, 158, 11, 0.7);
+        box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.8), 0 0 30px rgba(245, 158, 11, 0.35);
     }
 
     /* Modal Backdrop */
@@ -63,8 +78,8 @@
     
     <!-- Top Header Banner -->
     <div class="relative overflow-hidden rounded-3xl glass-panel p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-white/10">
-        <div class="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-rose-500/10 via-zinc-800/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-zinc-700/20 via-zinc-900/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-purple-600/30 via-violet-500/20 to-transparent rounded-full blur-3xl pointer-events-none"></div>
 
         <div class="relative z-10 space-y-1.5">
             <div class="flex items-center gap-3">
@@ -200,15 +215,15 @@
             </div>
         </div>
 
-        <!-- Chart 2: Top Categories / Tags Distribution (1 Col) -->
+        <!-- Chart 2: Top Popular Provinces (6 Provinces) (1 Col) -->
         <div class="glass-panel rounded-3xl p-6 space-y-4">
             <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                    <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                <div class="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <i data-lucide="map-pin" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <h2 class="text-base font-extrabold text-white">หมวดหมู่อยอดนิยม</h2>
-                    <p class="text-xs text-zinc-400">สัดส่วนแท็กและประเภทสถานที่เช็คอิน</p>
+                    <h2 class="text-base font-extrabold text-white">จังหวัดยอดนิยม</h2>
+                    <p class="text-xs text-zinc-400">สัดส่วนโพสต์ตาม 6 จังหวัดยอดนิยมที่เช็คอินมากที่สุด</p>
                 </div>
             </div>
             <div class="h-64 w-full relative flex items-center justify-center">
@@ -234,9 +249,6 @@
 
             <!-- Filter Tabs -->
             <div class="flex items-center gap-1.5 p-1 bg-zinc-950/80 rounded-2xl border border-white/10 self-start md:self-auto">
-                <a href="?status=all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'all' %}bg-white text-black shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
-                    ทั้งหมด
-                </a>
                 <a href="?status=pending" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {% if status_filter == 'pending' %}bg-rose-500 text-white shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
                     <span>รอตรวจสอบ</span>
                     {% if pending_reports > 0 %}
@@ -488,8 +500,15 @@
                 </div>
             </div>
             {% empty %}
-            <div class="col-span-full py-8 text-center text-zinc-500 italic">
-                ไม่พบผู้ใช้งานตามคำค้นหา "{{ user_q }}"
+            <div class="col-span-full py-10 text-center text-zinc-500">
+                {% if user_q %}
+                    <p class="italic text-zinc-400">ไม่พบผู้ใช้งานตามคำค้นหา "{{ user_q }}"</p>
+                {% else %}
+                    <div class="flex flex-col items-center justify-center gap-2 text-zinc-400">
+                        <i data-lucide="search" class="w-8 h-8 text-zinc-600"></i>
+                        <span class="text-xs">พิมพ์ชื่อผู้ใช้, อีเมล หรือ Display Name ในช่องด้านบนเพื่อค้นหาบัญชีผู้ใช้</span>
+                    </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -623,7 +642,7 @@
             }
         });
 
-        // Chart 2: Top Categories Doughnut Chart
+        // Chart 2: Top Popular Provinces Doughnut Chart (6 Provinces)
         const ctxCat = document.getElementById('categoryChart').getContext('2d');
         new Chart(ctxCat, {
             type: 'doughnut',
@@ -691,5 +710,30 @@
         document.getElementById('report-detail-modal').classList.add('hidden');
         document.getElementById('report-detail-modal').classList.remove('flex');
     }
+
+    // 3. Scroll Position Preservation Logic
+    // Save scroll position before submitting forms or navigating links inside the page
+    window.addEventListener('beforeunload', function() {
+        sessionStorage.setItem('adminDashboardScrollPos', window.scrollY);
+    });
+
+    // On page load: restore scroll position unless the user manually refreshed (F5 / Reload)
+    document.addEventListener('DOMContentLoaded', function() {
+        const navEntries = performance.getEntriesByType && performance.getEntriesByType("navigation");
+        const isReload = (navEntries && navEntries.length > 0 && navEntries[0].type === 'reload') ||
+                         (window.performance && window.performance.navigation && window.performance.navigation.type === 1);
+
+        if (isReload) {
+            // Manual F5 / Reload button -> reset to top
+            sessionStorage.removeItem('adminDashboardScrollPos');
+        } else {
+            // Activity / Action inside page -> maintain scroll position
+            const savedPos = sessionStorage.getItem('adminDashboardScrollPos');
+            if (savedPos !== null) {
+                window.scrollTo({ top: parseInt(savedPos, 10), behavior: 'instant' });
+                sessionStorage.removeItem('adminDashboardScrollPos');
+            }
+        }
+    });
 </script>
 {% endblock %}

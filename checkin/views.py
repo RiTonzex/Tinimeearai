@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import urllib.parse
 import requests
 from django.conf import settings
@@ -1823,45 +1824,82 @@ def admin_dashboard(request):
         daily_posts_labels.append(day.strftime('%d/%m'))
         daily_posts_data.append(count)
 
-    # Chart 2: Top Categories / Tags
-    tag_counts = {}
-    for p in Post.objects.exclude(tags__isnull=True).exclude(tags=''):
-        if p.tags:
-            split_tags = [t.strip('# ').strip() for t in p.tags.replace(',', ' ').split() if t.strip()]
-            for tag in split_tags:
-                if tag:
-                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    # Chart 2: Top Popular Provinces (6 Provinces)
+    THAI_PROVINCES = [
+        "กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", 
+        "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", 
+        "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", 
+        "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", 
+        "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", 
+        "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", 
+        "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", 
+        "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", 
+        "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", 
+        "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", 
+        "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", 
+        "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", 
+        "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"
+    ]
 
-    sorted_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:6]
-    if sorted_tags:
-        category_labels = [t[0] for t in sorted_tags]
-        category_data = [t[1] for t in sorted_tags]
-    else:
-        category_labels = ['คาเฟ่', 'ทะเล', 'ภูเขา', 'จุดชมวิว', 'ที่เที่ยวลับ']
-        category_data = [5, 4, 3, 2, 1]
+    province_counts = {}
+    short_words = {"เลย", "ตาก", "แพร่", "น่าน", "ตรัง"}
 
-    # Moderation Queue (Reports)
-    status_filter = request.GET.get('status', 'all')
+    for p in Post.objects.all():
+        text_to_search = f"{p.location_name or ''} {p.tags or ''} {p.caption or ''}"
+        matched_in_post = set()
+        for prov in THAI_PROVINCES:
+            short_name = prov.replace("พระนครศรีอยุธยา", "อยุธยา").replace("กรุงเทพมหานคร", "กรุงเทพ")
+            if prov in short_words:
+                pattern = r'(?:จ\.|จังหวัด|#|\s|^)' + re.escape(prov) + r'(?:\s|$|,|\.|\)|\|)'
+                if re.search(pattern, text_to_search):
+                    matched_in_post.add(prov)
+            else:
+                if prov in text_to_search or short_name in text_to_search:
+                    matched_in_post.add(prov)
+        for prov in matched_in_post:
+            province_counts[prov] = province_counts.get(prov, 0) + 1
+
+    sorted_provinces = sorted(province_counts.items(), key=lambda x: x[1], reverse=True)[:6]
+
+    default_popular = [('เชียงใหม่', 6), ('สุราษฎร์ธานี', 5), ('กระบี่', 4), ('กรุงเทพมหานคร', 3), ('ภูเก็ต', 2), ('ชลบุรี', 1)]
+    final_provinces = list(sorted_provinces)
+    existing_names = {p[0] for p in final_provinces}
+    for def_name, def_val in default_popular:
+        if len(final_provinces) >= 6:
+            break
+        if def_name not in existing_names:
+            final_provinces.append((def_name, def_val))
+            existing_names.add(def_name)
+
+    category_labels = [p[0] for p in final_provinces[:6]]
+    category_data = [p[1] for p in final_provinces[:6]]
+
+    # Moderation Queue (Reports) - Default filter to 'pending'
+    status_filter = request.GET.get('status', 'pending')
+    if status_filter not in ('pending', 'resolved', 'dismissed'):
+        status_filter = 'pending'
+
     reports_qs = Report.objects.select_related(
         'reporter', 'reporter__profile',
         'post', 'post__user', 'post__user__profile',
         'comment', 'comment__user', 'comment__user__profile'
     )
-    if status_filter in ('pending', 'resolved', 'dismissed'):
-        reports = reports_qs.filter(status=status_filter)
-    else:
-        reports = reports_qs.all()
+    reports = reports_qs.filter(status=status_filter)
 
     # User Search & Ban Queue
     user_q = request.GET.get('user_q', '').strip()
     if user_q:
+        clean_q = user_q.lstrip('@').strip()
         users_list = User.objects.select_related('profile').filter(
             Q(username__icontains=user_q) |
+            Q(username__icontains=clean_q) |
             Q(email__icontains=user_q) |
-            Q(profile__display_name__icontains=user_q)
-        ).order_by('-date_joined')[:20]
+            Q(email__icontains=clean_q) |
+            Q(profile__display_name__icontains=user_q) |
+            Q(profile__display_name__icontains=clean_q)
+        ).distinct().order_by('-date_joined')[:20]
     else:
-        users_list = User.objects.select_related('profile').order_by('-date_joined')[:10]
+        users_list = []
 
     context = {
         'total_posts': total_posts,
@@ -2010,6 +2048,9 @@ def admin_resolve_report(request, report_id):
         return JsonResponse({'success': True, 'message': msg, 'status': report.status, 'status_display': report.get_status_display()})
 
     messages.success(request, msg)
+    referer = request.META.get('HTTP_REFERER')
+    if referer and 'admin_dashboard' in referer:
+        return redirect(referer)
     return redirect('admin_dashboard')
 
 
@@ -2037,6 +2078,9 @@ def admin_toggle_ban_user(request, user_id):
         return JsonResponse({'success': True, 'is_banned': profile.is_banned, 'message': msg})
 
     messages.success(request, msg)
+    referer = request.META.get('HTTP_REFERER')
+    if referer and 'admin_dashboard' in referer:
+        return redirect(referer)
     return redirect('admin_dashboard')
 
 
