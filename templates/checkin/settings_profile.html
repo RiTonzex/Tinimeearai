@@ -96,8 +96,15 @@
                 </div>
 
                 <div class="space-y-1.5">
-                    <label class="block text-xs font-bold text-zinc-200">อีเมล (Email)</label>
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-bold text-zinc-200">อีเมล (Email)</label>
+                        <a href="{% url 'settings_password' %}" class="text-[11px] font-bold text-zinc-400 hover:text-white transition inline-flex items-center gap-1">
+                            <i data-lucide="lock" class="w-3 h-3 text-zinc-400"></i>
+                            <span>เปลี่ยนรหัสผ่าน →</span>
+                        </a>
+                    </div>
                     {{ form.email }}
+                    <p class="text-[10px] text-zinc-400">ใช้อีเมลนี้สำหรับรับรหัสกู้คืนและรีเซ็ตรหัสผ่าน (แนะนำให้ระบุเพื่อความปลอดภัยของบัญชี)</p>
                 </div>
 
                 <div class="pt-2">

@@ -4,6 +4,7 @@ Optimized for Vercel Serverless Deployment & Mobile Excellence
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
@@ -66,6 +67,7 @@ INSTALLED_APPS = [
     'cloudinary',
     # Local Apps
     'checkin',
+    'planner',
 ]
 
 
@@ -106,7 +108,14 @@ WSGI_APPLICATION = 'myapp.wsgi.application'
 DATABASE_URL = os.environ.get('DATABASE_URL')
 is_vercel = os.environ.get('VERCEL') == '1'
 
-if DATABASE_URL:
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+elif DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
@@ -223,5 +232,21 @@ LOGOUT_REDIRECT_URL = 'login'
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 
+# -----------------------------------------------------------------------------
+# Email Configuration (SMTP with Console/Logger Fallback)
+# -----------------------------------------------------------------------------
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'ที่นี่มีอะไร <noreply@tinimeearai.com>')
+
+if EMAIL_HOST and EMAIL_HOST_USER:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 

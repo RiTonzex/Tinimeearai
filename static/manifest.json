@@ -1,0 +1,71 @@
+{
+  "id": "/",
+  "name": "ที่นี่มีอะไร - Tinimeearai Travel Community",
+  "short_name": "ที่นี่มีอะไร",
+  "description": "คอมมูนิตี้ท่องเที่ยว แชร์เรื่องราวการเดินทาง และเช็คอินพิกัดทั่วไทย",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "lang": "th",
+  "categories": ["travel", "social", "lifestyle", "navigation"],
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "สำรวจทริป",
+      "short_name": "สำรวจ",
+      "description": "ดูโพสต์เช็คอินและสถานที่ท่องเที่ยวยอดนิยม",
+      "url": "/?source=pwa_shortcut",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "สร้างโพสต์เช็คอิน",
+      "short_name": "เช็คอิน (+)",
+      "description": "แชร์ภาพความทรงจำและพิกัดตำแหน่งใหม่",
+      "url": "/post/create/?source=pwa_shortcut",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "ค้นหาสถานที่",
+      "short_name": "ค้นหา",
+      "description": "ค้นหาพิกัด แท็ก หรือเพื่อนร่วมทริป",
+      "url": "/search/?source=pwa_shortcut",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "รอยเท้าของฉัน",
+      "short_name": "รอยเท้า",
+      "description": "ดูแผนที่ 77 จังหวัดและประวัติการเดินทาง",
+      "url": "/my-posts/?source=pwa_shortcut",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

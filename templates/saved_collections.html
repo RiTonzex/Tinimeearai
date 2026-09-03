@@ -1,0 +1,520 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(24, 24, 27, 0.6);
+        border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6 pb-20">
+    <!-- Header Section -->
+    <div class="glass-card rounded-[2rem] p-6 md:p-8 border border-white/10 relative overflow-hidden shadow-2xl">
+        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold mb-3 border border-white/10">
+                    <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+                    <span>Saved Collections</span>
+                </div>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">คอลเลกชัน & โฟลเดอร์ทริป</h1>
+                <p class="text-xs md:text-sm text-zinc-400 mt-1">จัดกลุ่มสถานที่น่าสนใจเป็นทริปการเดินทาง และวางแผนบนแผนที่ได้ง่ายๆ</p>
+            </div>
+            
+            <button type="button" onclick="openCreateCollectionModal()" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white hover:bg-zinc-200 text-black font-bold text-sm shadow-xl active:scale-95 transition-all shrink-0">
+                <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                <span>สร้างคอลเลกชันใหม่</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- General Bookmarks Bar -->
+    {% if general_bookmarks_count > 0 %}
+    <div class="glass-card rounded-2xl p-4 border border-zinc-800 flex items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-amber-400 shrink-0 shadow-md">
+                <i data-lucide="bookmark-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h2 class="text-sm font-bold text-white">บันทึกทั่วไป (ยังไม่จัดโฟลเดอร์)</h2>
+                <p class="text-xs text-zinc-400 font-mono">{{ general_bookmarks_count }} โพสต์ที่บันทึกไว้</p>
+            </div>
+        </div>
+
+        <button type="button" onclick="openGeneralBookmarksModal()" class="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-white font-bold text-xs transition active:scale-95 flex items-center gap-2 shadow-md">
+            <span>เปิดดูรายการทั้งหมด</span>
+            <i data-lucide="external-link" class="w-3.5 h-3.5 text-zinc-400"></i>
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Collections Grid -->
+    <div>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="folder-heart" class="w-4 h-4 text-zinc-300"></i>
+                <span>โฟลเดอร์ทริปของคุณ</span>
+            </h2>
+            <span class="text-xs text-zinc-400 font-mono" id="collection-count-badge">{{ collections|length }} คอลเลกชัน</span>
+        </div>
+
+        {% if collections %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="collections-grid-container">
+                {% for col in collections %}
+                    <article class="glass-card glass-card-hover rounded-3xl overflow-hidden border border-white/10 flex flex-col justify-between group shadow-xl transition-all duration-200" id="collection-card-{{ col.id }}">
+                        <div class="relative aspect-[16/9] w-full bg-zinc-900 overflow-hidden">
+                            <img src="{{ col.get_cover_image_url }}" alt="{{ col.title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent"></div>
+                            
+                            <!-- Action Buttons Top Left -->
+                            <div class="absolute top-3 left-3 z-10 flex items-center gap-1.5">
+                                <button type="button" onclick="openEditCollectionModal({{ col.id }}, '{{ col.title|escapejs }}', '{{ col.description|default:''|escapejs }}', {{ col.is_public|yesno:'true,false' }})" class="p-1.5 rounded-full bg-black/80 hover:bg-black backdrop-blur-md border border-white/20 text-zinc-300 hover:text-white transition active:scale-90 shadow-lg" title="แก้ไขคอลเลกชัน">
+                                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button type="button" onclick="confirmDeleteCollection({{ col.id }}, '{{ col.title|escapejs }}')" class="p-1.5 rounded-full bg-black/80 hover:bg-rose-950/90 backdrop-blur-md border border-rose-500/40 text-rose-300 hover:text-rose-200 transition active:scale-90 shadow-lg" title="ลบคอลเลกชัน">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+
+                            <!-- Visibility Badge Top Right -->
+                            <div class="absolute top-3 right-3 z-10">
+                                {% if col.is_public %}
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/20 text-emerald-400 text-[11px] font-bold shadow-lg">
+                                        <i data-lucide="globe" class="w-3 h-3"></i>
+                                        <span>สาธารณะ</span>
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/20 text-zinc-300 text-[11px] font-bold shadow-lg">
+                                        <i data-lucide="lock" class="w-3 h-3"></i>
+                                        <span>ส่วนตัว</span>
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Title Overlay -->
+                            <div class="absolute bottom-3 left-3 right-3 z-10">
+                                <h3 class="text-lg font-bold text-white tracking-tight drop-shadow-md truncate" id="col-title-display-{{ col.id }}">{{ col.title }}</h3>
+                            </div>
+                        </div>
+
+                        <!-- Card Info & Footer -->
+                        <div class="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                            <p class="text-xs text-zinc-400 line-clamp-2 min-h-[32px]">
+                                {{ col.description|default:"ไม่มีคำอธิบาย" }}
+                            </p>
+
+                            <div class="pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-400">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex items-center gap-1 font-mono">
+                                        <i data-lucide="bookmark" class="w-3.5 h-3.5 text-zinc-300"></i>
+                                        <span>{{ col.posts_count }} โพสต์</span>
+                                    </span>
+                                    <span class="flex items-center gap-1 font-mono">
+                                        <i data-lucide="map-pin" class="w-3.5 h-3.5 text-zinc-300"></i>
+                                        <span>{{ col.pins_count }} หมุด</span>
+                                    </span>
+                                </div>
+
+                                <a href="{% url 'trip_map_view' pk=col.pk %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black hover:bg-zinc-200 font-bold text-xs transition active:scale-95 shadow-md">
+                                    <i data-lucide="map" class="w-3.5 h-3.5"></i>
+                                    <span>แผนที่ทริป</span>
+                                </a>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Empty State -->
+            <div id="collections-empty-state" class="text-center py-14 px-6 rounded-3xl glass-card border border-dashed border-zinc-800 space-y-4">
+                <div class="w-16 h-16 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto text-zinc-400 shadow-inner">
+                    <i data-lucide="folder-plus" class="w-8 h-8"></i>
+                </div>
+                <div class="space-y-1 max-w-sm mx-auto">
+                    <h3 class="text-base font-bold text-white">ยังไม่มีคอลเลกชันทริป</h3>
+                    <p class="text-xs text-zinc-400 leading-relaxed">คุณสามารถสร้างคอลเลกชันเพื่อรวบรวมสถานที่เช็คอินที่ชอบ และดูหมุดทั้งหมดบนแผนที่ในทริปเดียวกันได้</p>
+                </div>
+                <button type="button" onclick="openCreateCollectionModal()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition active:scale-95 shadow-lg">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>สร้างคอลเลกชันแรกเลย</span>
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Create New Collection -->
+<div id="create-collection-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity duration-200">
+    <div class="glass-card w-full max-w-md rounded-3xl p-6 border border-white/15 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+        <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="folder-plus" class="w-5 h-5 text-white"></i>
+                <span>สร้างคอลเลกชันใหม่</span>
+            </h3>
+            <button type="button" onclick="closeCreateCollectionModal()" class="p-1 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="create-collection-form" class="space-y-4">
+            <div>
+                <label for="col-title" class="block text-xs font-bold text-zinc-300 mb-1">ชื่อคอลเลกชัน / ชื่อทริป <span class="text-rose-400">*</span></label>
+                <input type="text" id="col-title" name="title" required placeholder="เช่น ทริปเชียงใหม่ 2026, คาเฟ่ลับกรุงเทพ" class="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:outline-none focus:border-white transition">
+            </div>
+
+            <div>
+                <label for="col-description" class="block text-xs font-bold text-zinc-300 mb-1">คำอธิบายเพิ่มเติม (ถ้ามี)</label>
+                <textarea id="col-description" name="description" rows="3" placeholder="ระบุรายละเอียดทริป ความประทับใจ หรือแพลนเดินทาง..." class="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:outline-none focus:border-white transition"></textarea>
+            </div>
+
+            <div>
+                <label for="col-cover-image" class="block text-xs font-bold text-zinc-300 mb-1">รูปภาพปกคอลเลกชัน (อัปโหลดรูปของตนเองได้)</label>
+                <input type="file" id="col-cover-image" name="cover_image" accept="image/*" class="w-full text-xs text-zinc-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 cursor-pointer">
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-zinc-900 border border-zinc-800">
+                <div class="space-y-0.5">
+                    <span class="text-xs font-bold text-white block">เปิดเป็นคอลเลกชันสาธารณะ</span>
+                    <span class="text-[11px] text-zinc-400 block">เปิดให้ผู้อื่นเข้าชมหมุดบนแผนที่ผ่านลิงก์แชร์ได้</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="col-is-public" name="is_public" class="sr-only peer">
+                    <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white"></div>
+                </label>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+                <button type="button" onclick="closeCreateCollectionModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-400 hover:text-white transition">
+                    ยกเลิก
+                </button>
+                <button type="submit" id="btn-submit-collection" class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs shadow-lg active:scale-95 transition">
+                    บันทึกคอลเลกชัน
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Collection -->
+<div id="edit-collection-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity duration-200">
+    <div class="glass-card w-full max-w-md rounded-3xl p-6 border border-white/15 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
+        <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="pencil" class="w-5 h-5 text-white"></i>
+                <span>แก้ไขคอลเลกชัน</span>
+            </h3>
+            <button type="button" onclick="closeEditCollectionModal()" class="p-1 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="edit-collection-form" class="space-y-4">
+            <input type="hidden" id="edit-col-id">
+            <div>
+                <label for="edit-col-title" class="block text-xs font-bold text-zinc-300 mb-1">ชื่อคอลเลกชัน / ชื่อทริป <span class="text-rose-400">*</span></label>
+                <input type="text" id="edit-col-title" name="title" required class="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:outline-none focus:border-white transition">
+            </div>
+
+            <div>
+                <label for="edit-col-description" class="block text-xs font-bold text-zinc-300 mb-1">คำอธิบายเพิ่มเติม</label>
+                <textarea id="edit-col-description" name="description" rows="3" class="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:outline-none focus:border-white transition"></textarea>
+            </div>
+
+            <div>
+                <label for="edit-col-cover-image" class="block text-xs font-bold text-zinc-300 mb-1">เปลี่ยนรูปภาพปกคอลเลกชัน</label>
+                <input type="file" id="edit-col-cover-image" name="cover_image" accept="image/*" class="w-full text-xs text-zinc-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 cursor-pointer">
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-zinc-900 border border-zinc-800">
+                <div class="space-y-0.5">
+                    <span class="text-xs font-bold text-white block">เปิดเป็นคอลเลกชันสาธารณะ</span>
+                    <span class="text-[11px] text-zinc-400 block">เปิดให้ผู้อื่นเข้าชมหมุดบนแผนที่ผ่านลิงก์แชร์ได้</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="edit-col-is-public" name="is_public" class="sr-only peer">
+                    <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white"></div>
+                </label>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800">
+                <button type="button" onclick="closeEditCollectionModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-zinc-400 hover:text-white transition">
+                    ยกเลิก
+                </button>
+                <button type="submit" id="btn-submit-edit-collection" class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs shadow-lg active:scale-95 transition">
+                    บันทึกการแก้ไข
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Confirm Delete Collection -->
+<div id="delete-collection-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity duration-200">
+    <div class="glass-card w-full max-w-sm rounded-3xl p-6 border border-rose-500/30 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div class="w-12 h-12 rounded-2xl bg-rose-950/80 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
+            <i data-lucide="trash-2" class="w-6 h-6"></i>
+        </div>
+
+        <div class="text-center space-y-1">
+            <h3 class="text-base font-bold text-white">ลบคอลเลกชันนี้หรือไม่?</h3>
+            <p class="text-xs text-zinc-400" id="delete-col-target-title">ทริปเชียงใหม่</p>
+            <p class="text-[11px] text-zinc-500 pt-1">การลบคอลเลกชันนี้จะลบโฟลเดอร์ทริป แต่จะไม่ลบโพสต์ต้นฉบับในระบบ</p>
+        </div>
+
+        <input type="hidden" id="delete-col-id">
+
+        <div class="flex items-center justify-center gap-3 pt-2">
+            <button type="button" onclick="closeDeleteCollectionModal()" class="flex-1 py-2.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white font-bold text-xs transition">
+                ยกเลิก
+            </button>
+            <button type="button" onclick="executeDeleteCollection()" id="btn-confirm-delete-collection" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg active:scale-95 transition">
+                ลบคอลเลกชัน
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: General Bookmarks List -->
+{% if general_bookmarks_count > 0 %}
+<div id="general-bookmarks-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity duration-200">
+    <div class="glass-card w-full max-w-lg rounded-3xl p-6 border border-white/15 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <div class="flex items-center gap-2.5">
+                <i data-lucide="bookmark-check" class="w-5 h-5 text-amber-400"></i>
+                <h3 class="text-base font-bold text-white">รายการบันทึกทั่วไป</h3>
+                <span class="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 font-mono text-xs">{{ general_bookmarks_count }} โพสต์</span>
+            </div>
+            <button type="button" onclick="closeGeneralBookmarksModal()" class="p-1 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Scrollable List of General Bookmarks -->
+        <div class="space-y-2.5 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar overscroll-contain">
+            {% for bm in general_bookmarks %}
+                {% with post=bm.post %}
+                <div class="glass-card rounded-2xl p-3 border border-zinc-800 flex items-center justify-between gap-3 hover:border-zinc-700 transition group shadow-md">
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <div class="w-12 h-12 rounded-xl bg-zinc-900 overflow-hidden shrink-0 border border-zinc-800">
+                            <img src="{{ post.get_image_url }}" alt="" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+                        </div>
+                        <div class="min-w-0 flex-1 space-y-0.5">
+                            <a href="{% url 'post_detail' pk=post.pk %}" class="text-xs font-bold text-white hover:underline block truncate">
+                                {{ post.location_name|default:post.caption|truncatechars:32 }}
+                            </a>
+                            <p class="text-[10px] text-zinc-400 font-mono truncate">
+                                โดย @{{ post.user.username }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="openBookmarkModal({{ post.id }})" class="px-3.5 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs shrink-0 transition active:scale-95 flex items-center gap-1.5 shadow-md">
+                        <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>
+                        <span>+ จัดเข้าคอลเลกชัน</span>
+                    </button>
+                </div>
+                {% endwith %}
+            {% endfor %}
+        </div>
+
+        <div class="pt-2 border-t border-zinc-800 flex justify-end">
+            <button type="button" onclick="closeGeneralBookmarksModal()" class="px-4 py-2 rounded-xl bg-zinc-800 text-white font-bold text-xs hover:bg-zinc-700 transition">
+                ปิดหน้าต่าง
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openGeneralBookmarksModal() {
+        const modal = document.getElementById('general-bookmarks-modal');
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeGeneralBookmarksModal() {
+        const modal = document.getElementById('general-bookmarks-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function openCreateCollectionModal() {
+        const modal = document.getElementById('create-collection-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.getElementById('col-title').focus();
+        }
+    }
+
+    function closeCreateCollectionModal() {
+        const modal = document.getElementById('create-collection-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.getElementById('create-collection-form').reset();
+        }
+    }
+
+    function openEditCollectionModal(id, title, description, isPublic) {
+        document.getElementById('edit-col-id').value = id;
+        document.getElementById('edit-col-title').value = title;
+        document.getElementById('edit-col-description').value = description;
+        document.getElementById('edit-col-is-public').checked = isPublic;
+        document.getElementById('edit-collection-modal').classList.remove('hidden');
+    }
+
+    function closeEditCollectionModal() {
+        document.getElementById('edit-collection-modal').classList.add('hidden');
+    }
+
+    function confirmDeleteCollection(id, title) {
+        document.getElementById('delete-col-id').value = id;
+        document.getElementById('delete-col-target-title').textContent = `"${title}"`;
+        document.getElementById('delete-collection-modal').classList.remove('hidden');
+    }
+
+    function closeDeleteCollectionModal() {
+        document.getElementById('delete-collection-modal').classList.add('hidden');
+    }
+
+    async function executeDeleteCollection() {
+        const colId = document.getElementById('delete-col-id').value;
+        const btn = document.getElementById('btn-confirm-delete-collection');
+        if (!colId) return;
+
+        btn.disabled = true;
+        btn.innerText = 'กำลังลบ...';
+
+        try {
+            const response = await fetch(`/api/collections/${colId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                }
+            });
+
+            const data = await response.json();
+            if (data.status === 'success') {
+                closeDeleteCollectionModal();
+                if (typeof showSystemToast === 'function') {
+                    showSystemToast('ลบคอลเลกชันเรียบร้อยแล้ว', 'success');
+                }
+                const card = document.getElementById(`collection-card-${colId}`);
+                if (card) {
+                    card.remove();
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert(data.message || 'เกิดข้อผิดพลาดในการลบคอลเลกชัน');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'ลบคอลเลกชัน';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Create collection form handler
+        const form = document.getElementById('create-collection-form');
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const submitBtn = document.getElementById('btn-submit-collection');
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'กำลังสร้าง...';
+
+                const formData = new FormData(form);
+
+                try {
+                    const response = await fetch('/api/collections/create/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        closeCreateCollectionModal();
+                        if (typeof showSystemToast === 'function') {
+                            showSystemToast('สร้างคอลเลกชันสำเร็จแล้ว', 'success');
+                        }
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'เกิดข้อผิดพลาดในการสร้างคอลเลกชัน');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'บันทึกคอลเลกชัน';
+                }
+            });
+        }
+
+        // Edit collection form handler
+        const editForm = document.getElementById('edit-collection-form');
+        if (editForm) {
+            editForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const colId = document.getElementById('edit-col-id').value;
+                const submitBtn = document.getElementById('btn-submit-edit-collection');
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'กำลังบันทึก...';
+
+                const formData = new FormData(editForm);
+
+                try {
+                    const response = await fetch(`/api/collections/${colId}/edit/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        closeEditCollectionModal();
+                        if (typeof showSystemToast === 'function') {
+                            showSystemToast('บันทึกการแก้ไขแล้ว', 'success');
+                        }
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'เกิดข้อผิดพลาดในการแก้ไข');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'บันทึกการแก้ไข';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
+

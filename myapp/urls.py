@@ -6,8 +6,11 @@ from django.views.generic.base import RedirectView
 
 urlpatterns = [
     path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico', permanent=True)),
+    path('manifest.json', RedirectView.as_view(url='/static/manifest.json', permanent=True)),
+    path('sw.js', RedirectView.as_view(url='/static/sw.js', permanent=True)),
     path('admin/', admin.site.urls),
     path('', include('checkin.urls')),
+    path('', include('planner.urls')),
 ]
 
 

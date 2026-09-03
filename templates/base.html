@@ -5,12 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
-    <!-- Favicon (Pure Black & White Minimalist Favicon) -->
+    <!-- Favicon & PWA Icons (Pure Black & White Minimalist Luxury Favicon) -->
     <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}?v=black_2026">
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}?v=black_2026">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'favicon.png' %}?v=black_2026">
     <link rel="shortcut icon" href="{% static 'favicon.ico' %}?v=black_2026">
-    <link rel="apple-touch-icon" href="{% static 'favicon.png' %}?v=black_2026">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}?v=pwa_2026">
+    <link rel="manifest" href="/manifest.json">
     
     <!-- Mobile PWA & Web App Meta Tags -->
     <meta name="theme-color" content="#000000">
@@ -18,6 +19,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ที่นี่มีอะไร">
+    <meta name="application-name" content="ที่นี่มีอะไร">
     <meta name="csrf-token" content="{{ csrf_token }}">
     
     <title>{% block title %}ที่นี่มีอะไร - Travel & Check-in Community{% endblock %}</title>
@@ -214,6 +216,7 @@
             <!-- Right Actions (Profile, Notifications, Logout) -->
             <div class="flex items-center gap-2.5">
                 {% if user.is_authenticated %}
+
                     <!-- Notification Bell -->
                     <a href="{% url 'notifications' %}" class="relative w-9 h-9 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center text-zinc-300 hover:text-white hover:border-zinc-600 transition active:scale-90" title="การแจ้งเตือน">
                         <i data-lucide="bell" class="w-4 h-4 text-zinc-300"></i>
@@ -235,9 +238,9 @@
                             </div>
                             <span class="text-xs font-semibold text-zinc-300 hidden lg:inline group-hover:text-white transition">{{ user.profile.get_display_name|default:user.username }}</span>
                         </a>
-                        <a href="{% url 'logout' %}" class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-rose-400 hover:border-rose-900/60 transition active:scale-90" title="ออกจากระบบ">
+                        <button type="button" onclick="openGlobalLogoutModal()" class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-rose-400 hover:border-rose-900/60 transition active:scale-90 cursor-pointer" title="ออกจากระบบ">
                             <i data-lucide="log-out" class="w-4 h-4"></i>
-                        </a>
+                        </button>
                     </div>
                 {% else %}
                     <a href="{% url 'login' %}" class="text-xs md:text-sm font-semibold text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl hover:bg-zinc-900 transition">
@@ -272,6 +275,12 @@
             <span class="text-[9px] font-bold mt-0.5">รอยเท้า</span>
         </a>
 
+        <!-- 4. คอลเลกชัน/ทริป -->
+        <a href="{% url 'saved_collections' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if '/planner/collections' in request.path %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="คอลเลกชัน & ทริป">
+            <i data-lucide="bookmark" class="w-5 h-5 {% if '/planner/collections' in request.path %}text-black{% endif %}"></i>
+            <span class="text-[9px] font-bold mt-0.5">คอลเลกชัน</span>
+        </a>
+
         <!-- 4. โปรไฟล์สาธารณะ -->
         <a href="{% url 'user_profile' username=user.username %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if request.resolver_match.url_name == 'user_profile' and request.resolver_match.kwargs.username == user.username %}bg-white text-black font-bold shadow-lg{% else %}text-zinc-400 hover:text-white hover:bg-zinc-900{% endif %}" title="โปรไฟล์สาธารณะ">
             <div class="w-5 h-5 rounded-full overflow-hidden border {% if request.resolver_match.url_name == 'user_profile' and request.resolver_match.kwargs.username == user.username %}border-black ring-1 ring-black{% else %}border-zinc-500 group-hover:border-white{% endif %} flex items-center justify-center bg-zinc-900 shrink-0 shadow-sm">
@@ -289,6 +298,14 @@
             <i data-lucide="settings" class="w-5 h-5 {% if '/settings' in request.path %}text-black{% endif %}"></i>
             <span class="text-[9px] font-bold mt-0.5">ตั้งค่า</span>
         </a>
+
+        {% if user.is_staff or user.is_superuser %}
+        <!-- 6. แอดมิน (Admin Dashboard) -->
+        <a href="{% url 'admin_dashboard' %}" class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition active:scale-90 group relative {% if '/admin-dashboard' in request.path %}bg-rose-600 text-white font-bold shadow-lg shadow-rose-600/30{% else %}text-rose-400 hover:text-rose-300 hover:bg-rose-950/40{% endif %}" title="แอดมิน Dashboard">
+            <i data-lucide="shield-alert" class="w-5 h-5 {% if '/admin-dashboard' in request.path %}text-white{% else %}text-rose-400{% endif %}"></i>
+            <span class="text-[9px] font-bold mt-0.5">แอดมิน</span>
+        </a>
+        {% endif %}
     </nav>
     {% endif %}
 
@@ -325,26 +342,54 @@
     <!-- Mobile Bottom App Dock (Clean Minimalist Luxury Dock) -->
     {% if user.is_authenticated %}
     <nav class="fixed bottom-3 left-4 right-4 z-40 sm:hidden glass-header rounded-3xl border border-white/10 shadow-2xl safe-bottom">
-        <div class="grid grid-cols-4 items-center h-16 px-2">
+        <div class="grid {% if user.is_staff or user.is_superuser %}grid-cols-7{% else %}grid-cols-5{% endif %} items-center h-16 px-1">
             <!-- 1. สำรวจ -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[50px] py-1" title="สำรวจ">
+                <a href="{% url 'post_list' %}" class="flex flex-col items-center justify-center {% if request.path == '/' or request.path == '/posts/' %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="สำรวจ">
                     <i data-lucide="compass" class="w-5 h-5"></i>
-                    <span class="text-[10px] mt-1 font-medium">สำรวจ</span>
+                    <span class="text-[9px] mt-1 font-medium">สำรวจ</span>
                 </a>
             </div>
 
             <!-- 2. ค้นหา -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[50px] py-1" title="ค้นหา">
+                <a href="{% url 'search' %}" class="flex flex-col items-center justify-center {% if '/search' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="ค้นหา">
                     <i data-lucide="search" class="w-5 h-5"></i>
-                    <span class="text-[10px] mt-1 font-medium">ค้นหา</span>
+                    <span class="text-[9px] mt-1 font-medium">ค้นหา</span>
                 </a>
             </div>
 
-            <!-- 3. โปรไฟล์สาธารณะ -->
+            {% if user.is_staff or user.is_superuser %}
+            <!-- 3. ตั้งค่า (แสดงเฉพาะ Admin เพื่อความสมดุล ซ้าย 3 ปุ่ม | เช็คอิน | ขวา 3 ปุ่ม) -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[50px] py-1" title="โปรไฟล์">
+                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="ตั้งค่า">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="text-[9px] mt-1 font-medium">ตั้งค่า</span>
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- CENTER STANDOUT ACTION BUTTON: เช็คอิน (+) Pure White Luxury Style -->
+            <div class="flex items-center justify-center relative">
+                <a href="{% url 'create_post' %}" class="flex flex-col items-center justify-center -translate-y-4 group transition active:scale-90" title="สร้างโพสต์เช็คอินใหม่">
+                    <div class="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center shadow-xl shadow-white/20 border-[3.5px] border-[#09090b] transition-transform duration-200 group-hover:scale-110">
+                        <i data-lucide="plus" class="w-6 h-6 stroke-[3] text-black"></i>
+                    </div>
+                    <span class="text-[9px] mt-0.5 font-bold text-white tracking-tight">เช็คอิน</span>
+                </a>
+            </div>
+
+            <!-- คอลเลกชัน -->
+            <div class="flex items-center justify-center">
+                <a href="{% url 'saved_collections' %}" class="flex flex-col items-center justify-center {% if '/planner/collections' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="คอลเลกชัน">
+                    <i data-lucide="bookmark" class="w-5 h-5"></i>
+                    <span class="text-[9px] mt-1 font-medium">คอลเลกชัน</span>
+                </a>
+            </div>
+
+            <!-- โปรไฟล์สาธารณะ -->
+            <div class="flex items-center justify-center">
+                <a href="{% url 'user_profile' username=user.username %}" class="flex flex-col items-center justify-center {% if '/profile/' in request.path and user.username in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[36px] py-1" title="โปรไฟล์">
                     <div class="w-5 h-5 rounded-full overflow-hidden border {% if '/profile/' in request.path and user.username in request.path %}border-white ring-1 ring-white/40{% else %}border-zinc-600{% endif %} flex items-center justify-center bg-zinc-900 shadow-sm">
                         {% if user.profile.get_avatar_url %}
                             <img src="{{ user.profile.get_avatar_url }}" alt="Profile" class="w-full h-full object-cover">
@@ -352,27 +397,499 @@
                             <span class="text-[9px] font-black text-white">{{ user.profile.get_initial|default:user.username|slice:":1"|upper }}</span>
                         {% endif %}
                     </div>
-                    <span class="text-[10px] mt-1 font-medium">โปรไฟล์</span>
+                    <span class="text-[9px] mt-1 font-medium">โปรไฟล์</span>
                 </a>
             </div>
 
-            <!-- 4. ตั้งค่า -->
+            {% if user.is_staff or user.is_superuser %}
+            <!-- แอดมิน (สำหรับ Staff) -->
             <div class="flex items-center justify-center">
-                <a href="{% url 'settings' %}" class="flex flex-col items-center justify-center {% if '/settings' in request.path %}text-white font-bold{% else %}text-zinc-400 hover:text-white{% endif %} active:scale-90 transition min-w-[50px] py-1" title="ตั้งค่า">
-                    <i data-lucide="settings" class="w-5 h-5"></i>
-                    <span class="text-[10px] mt-1 font-medium">ตั้งค่า</span>
+                <a href="{% url 'admin_dashboard' %}" class="flex flex-col items-center justify-center {% if '/admin-dashboard' in request.path %}text-rose-400 font-bold{% else %}text-rose-400/70 hover:text-rose-300{% endif %} active:scale-90 transition min-w-[36px] py-1" title="แอดมิน">
+                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                    <span class="text-[9px] mt-1 font-medium">แอดมิน</span>
                 </a>
             </div>
+            {% endif %}
         </div>
     </nav>
+    {% endif %}
+
+    <!-- Global Bookmark Collection Selection Modal -->
+    <div id="global-bookmark-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-opacity duration-200">
+        <div class="glass-card w-full max-w-sm rounded-3xl p-5 border border-white/15 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i data-lucide="bookmark" class="w-4 h-4 text-amber-400"></i>
+                    <span>เลือกคอลเลกชันที่ต้องการบันทึก</span>
+                </h3>
+                <button type="button" onclick="closeBookmarkModal()" class="p-1 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Collections List Container -->
+            <div id="bookmark-collections-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <div class="text-center py-4 text-xs text-zinc-500 font-mono">กำลังโหลดคอลเลกชัน...</div>
+            </div>
+
+            <!-- Inline Create Collection Form inside Bookmark Modal -->
+            <div class="pt-2 border-t border-zinc-800 space-y-2">
+                <button type="button" onclick="toggleModalInlineCreateForm()" class="w-full text-xs font-semibold text-zinc-300 hover:text-white transition flex items-center justify-between p-2 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="folder-plus" class="w-3.5 h-3.5 text-amber-400"></i>
+                        <span>+ สร้างคอลเลกชันใหม่</span>
+                    </span>
+                    <i data-lucide="chevron-down" id="inline-create-arrow" class="w-3.5 h-3.5 text-zinc-400 transition-transform"></i>
+                </button>
+
+                <form id="inline-create-collection-form" class="hidden space-y-2.5 p-3 rounded-2xl bg-zinc-900 border border-zinc-700/80 transition-all">
+                    <input type="text" id="inline-col-title" required placeholder="ชื่อคอลเลกชันใหม่ เช่น ทริปเชียงใหม่ 2026" class="w-full px-3 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-white text-xs focus:outline-none focus:border-white">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] text-zinc-400 flex items-center gap-1.5 cursor-pointer select-none">
+                            <input type="checkbox" id="inline-col-is-public" class="w-3.5 h-3.5 rounded border-zinc-700 text-amber-400 focus:ring-0 bg-zinc-950">
+                            <span>เปิดสาธารณะ</span>
+                        </label>
+                        <button type="submit" id="btn-submit-inline-col" class="px-3.5 py-1.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition">
+                            สร้างและบันทึก
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="pt-2 border-t border-zinc-800 flex items-center justify-between">
+                <a href="{% url 'saved_collections' %}" class="text-xs font-semibold text-zinc-400 hover:text-white transition flex items-center gap-1">
+                    <i data-lucide="folder-heart" class="w-3.5 h-3.5"></i>
+                    <span>ดูโฟลเดอร์ทริปทั้งหมด</span>
+                </a>
+                <button type="button" onclick="closeBookmarkModal()" class="px-4 py-1.5 rounded-xl bg-white text-black font-bold text-xs hover:bg-zinc-200 transition">
+                    เรียบร้อย
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GLOBAL USER / POST / COMMENT REPORT MODAL -->
+    <div id="user-report-modal" class="fixed inset-0 z-[150] bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+        <div class="glass-card max-w-md w-full rounded-3xl p-6 space-y-5 border border-white/10 shadow-2xl relative animate-scale-up">
+            <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                        <i data-lucide="flag" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-white" id="report-modal-title">รายงานเนื้อหา</h3>
+                        <p class="text-[11px] text-zinc-400" id="report-modal-subtitle">ระบุสาเหตุที่ต้องการส่งให้ทีมงานตรวจสอบ</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeUserReportModal()" class="w-8 h-8 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center transition active:scale-90">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <form method="POST" action="{% url 'report_item' %}" id="global-report-form" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="item_type" id="report-item-type" value="post">
+                <input type="hidden" name="item_id" id="report-item-id" value="">
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-zinc-300 block">เหตุผลในการรายงาน:</label>
+                    <select name="reason" id="report-reason-select" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500 transition">
+                        <option value="spam">ขยะ / สแปม (Spam)</option>
+                        <option value="inappropriate">เนื้อหาไม่เหมาะสม / ลามกอนาจาร</option>
+                        <option value="harassment">การคุกคาม / ความเกลียดชัง</option>
+                        <option value="fake_news">ข้อมูลเท็จ / หลอกลวง</option>
+                        <option value="rules_violation">ละเมิดกฎชุมชน</option>
+                        <option value="other" selected>อื่นๆ</option>
+                    </select>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-zinc-300 block">รายละเอียดเพิ่มเติม (ระบุถ้ามี):</label>
+                    <textarea name="details" id="report-details-textarea" rows="3" placeholder="อธิบายเพิ่มเติมเกี่ยวกับสาเหตุการรายงาน..." class="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500 transition resize-none"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/5">
+                    <button type="button" onclick="closeUserReportModal()" class="px-4 py-2.5 rounded-xl bg-zinc-900 text-zinc-300 font-bold text-xs hover:bg-zinc-800 transition">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" id="btn-submit-report" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-lg shadow-rose-900/30 active:scale-95 flex items-center gap-1.5">
+                        <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                        <span>ส่งรายงาน</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if user.is_authenticated %}
+    <!-- Global Logout Confirmation Modal with Intelligent No-Email Warning -->
+    <div id="global-logout-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="max-w-sm w-full glass-card p-6 md:p-7 rounded-[2rem] border border-white/10 shadow-2xl space-y-4 text-center animate-scale-up">
+            {% if not user.email or user.email|length == 0 %}
+                <!-- Warning: No email bound to account -->
+                <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
+                    <i data-lucide="alert-triangle" class="w-7 h-7"></i>
+                </div>
+                <div class="space-y-1.5">
+                    <h3 class="text-base font-black text-white">คุณยังไม่ได้ระบุอีเมลในระบบ!</h3>
+                    <p class="text-xs text-amber-200/90 leading-relaxed font-medium">
+                        ⚠️ หากออกจากระบบและ<strong>ลืมรหัสผ่าน จะไม่สามารถรีเซ็ตได้นะ</strong> เพราะคุณยังไม่ได้ใส่อีเมลไว้
+                    </p>
+                </div>
+                <div class="space-y-2 pt-2">
+                    <a href="{% url 'settings_profile' %}" class="w-full py-3.5 px-4 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-white/10 active:scale-95">
+                        <i data-lucide="mail-plus" class="w-4 h-4 text-black"></i>
+                        <span>เพิ่มอีเมลตอนนี้ (แนะนำ)</span>
+                    </a>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="closeGlobalLogoutModal()" class="flex-1 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold transition">
+                            ยกเลิก
+                        </button>
+                        <a href="{% url 'logout' %}" class="flex-1 py-3 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg text-center">
+                            ยืนยันออกจากระบบ
+                        </a>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Standard Logout confirmation -->
+                <div class="w-12 h-12 rounded-2xl bg-rose-950/40 border border-rose-800/50 text-rose-400 flex items-center justify-center mx-auto">
+                    <i data-lucide="log-out" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white">ยืนยันการออกจากระบบ?</h3>
+                    <p class="text-xs text-zinc-400 mt-1">คุณจะต้องเข้าสู่ระบบใหม่อีกครั้งเพื่อเข้าใช้งาน</p>
+                </div>
+                <div class="flex items-center gap-2.5 pt-2">
+                    <button type="button" onclick="closeGlobalLogoutModal()" class="flex-1 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs font-bold transition">
+                        ยกเลิก
+                    </button>
+                    <a href="{% url 'logout' %}" class="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg text-center">
+                        ออกจากระบบ
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
     {% endif %}
 
     <!-- Init Lucide Icons -->
     <script>
         lucide.createIcons();
+
+        window.openGlobalLogoutModal = function() {
+            const modal = document.getElementById('global-logout-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                if (window.lucide) lucide.createIcons();
+            }
+        };
+
+        window.closeGlobalLogoutModal = function() {
+            const modal = document.getElementById('global-logout-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        window.openUserReportModal = function(itemType, itemId, targetName) {
+            const modal = document.getElementById('user-report-modal');
+            const typeInput = document.getElementById('report-item-type');
+            const idInput = document.getElementById('report-item-id');
+            const titleEl = document.getElementById('report-modal-title');
+            const subtitleEl = document.getElementById('report-modal-subtitle');
+            const detailsInput = document.getElementById('report-details-textarea');
+
+            if (!modal || !typeInput || !idInput) return;
+
+            typeInput.value = itemType;
+            idInput.value = itemId;
+            if (detailsInput) detailsInput.value = '';
+
+            if (itemType === 'post') {
+                if (titleEl) titleEl.textContent = 'รายงานโพสต์';
+                if (subtitleEl) subtitleEl.textContent = targetName ? `รายงานโพสต์: "${targetName}"` : 'รายงานโพสต์ที่ทำผิดกฎชุมชน';
+            } else if (itemType === 'comment') {
+                if (titleEl) titleEl.textContent = 'รายงานความคิดเห็น';
+                if (subtitleEl) subtitleEl.textContent = targetName ? `รายงานความคิดเห็น: "${targetName}"` : 'รายงานความคิดเห็นที่ไม่เหมาะสม';
+            } else if (itemType === 'user') {
+                if (titleEl) titleEl.textContent = 'รายงานบัญชีผู้ใช้งาน';
+                if (subtitleEl) subtitleEl.textContent = targetName ? `รายงานบัญชีผู้ใช้ ${targetName}` : 'รายงานบัญชีผู้ใช้งานที่กระทำผิดกฎ';
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.closeUserReportModal = function() {
+            const modal = document.getElementById('user-report-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const reportModal = document.getElementById('user-report-modal');
+            if (reportModal) {
+                reportModal.addEventListener('click', (e) => {
+                    if (e.target === reportModal) closeUserReportModal();
+                });
+            }
+        });
+    </script>
+    <!-- PWA Install Floating Compact Badge (Small Corner Pill - Bottom Left with 5s Auto-dismiss) -->
+    <div id="pwa-install-banner" class="fixed bottom-20 md:bottom-8 left-4 md:left-8 z-40 glass-card p-1.5 pl-2.5 pr-2 rounded-full border border-white/20 shadow-2xl hidden items-center gap-2.5 animate-slide-up backdrop-blur-2xl bg-black/85 text-xs transition-opacity duration-300">
+        <div class="flex items-center gap-2 cursor-pointer" onclick="handlePwaInstallClick()">
+            <div class="w-6 h-6 rounded-lg bg-black border border-zinc-700 p-0.5 shadow shrink-0 overflow-hidden">
+                <img src="{% static 'icons/icon-192.png' %}" alt="App Icon" class="w-full h-full object-cover rounded-[5px]">
+            </div>
+            <span class="text-white font-bold tracking-tight text-[11px] hidden sm:inline">ติดตั้ง "ที่นี่มีอะไร"</span>
+            <span class="text-white font-bold tracking-tight text-[11px] sm:hidden">ติดตั้งแอป</span>
+        </div>
+        <button type="button" onclick="handlePwaInstallClick()" class="py-1 px-2.5 rounded-full bg-white hover:bg-zinc-200 text-black text-[11px] font-black transition shadow-sm active:scale-95 flex items-center gap-1">
+            <i data-lucide="download" class="w-3 h-3 text-black"></i>
+            <span>โหลด</span>
+        </button>
+        <button type="button" onclick="dismissPwaBanner()" class="text-zinc-500 hover:text-white p-1 rounded-full hover:bg-zinc-800 transition" title="ปิด">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+    </div>
+
+    <!-- Cookie Consent (PDPA) Floating Card -->
+    <div id="cookie-consent-banner" class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-50 glass-card p-4 rounded-2xl border border-white/20 shadow-2xl hidden flex-col sm:flex-row items-start sm:items-center gap-3 backdrop-blur-2xl bg-zinc-950/90 text-xs max-w-md animate-slide-up">
+        <div class="flex items-start gap-3">
+            <span class="text-xl shrink-0">🍪</span>
+            <div class="space-y-0.5">
+                <h4 class="font-bold text-white text-xs">การใช้งานคุกกี้ (Cookies Policy)</h4>
+                <p class="text-[11px] text-zinc-300 leading-relaxed">
+                    เราใช้คุกกี้เพื่อพัฒนาประสบการณ์การใช้งานและรักษาความปลอดภัยของระบบ
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0 pt-2 sm:pt-0">
+            <button type="button" onclick="acceptCookieConsent()" class="w-full sm:w-auto px-4 py-1.5 rounded-full bg-white hover:bg-zinc-200 text-black font-black text-xs transition shadow active:scale-95 text-center">
+                ยอมรับ
+            </button>
+            <button type="button" onclick="dismissCookieConsent()" class="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition" title="ปิด">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- iOS Safari "Add to Home Screen" Instruction Modal -->
+    <div id="pwa-ios-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="max-w-sm w-full glass-card p-6 rounded-[2rem] border border-white/10 shadow-2xl space-y-4 text-center animate-scale-up">
+            <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white mx-auto shadow-xl">
+                <i data-lucide="smartphone" class="w-7 h-7"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 class="text-base font-black text-white">ติดตั้งบน iPhone / iPad</h3>
+                <p class="text-xs text-zinc-400">ติดตั้งเป็นแอปเพื่อเข้าใช้งานแบบเต็มหน้าจอ</p>
+            </div>
+            <div class="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-left space-y-3 text-xs text-zinc-300">
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-white text-black font-black text-xs flex items-center justify-center shrink-0">1</span>
+                    <span>แตะที่ปุ่ม <strong class="text-white">แชร์ (Share ⎋)</strong> ที่แถบเมนูด้านล่าง Safari</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-white text-black font-black text-xs flex items-center justify-center shrink-0">2</span>
+                    <span>เลื่อนลงแล้วเลือก <strong class="text-white">➕ เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)</strong></span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full bg-white text-black font-black text-xs flex items-center justify-center shrink-0">3</span>
+                    <span>แตะ <strong class="text-white">เพิ่ม (Add)</strong> ที่มุมขวาบนเพื่อเสร็จสิ้น</span>
+                </div>
+            </div>
+            <button type="button" onclick="closeIosPwaModal()" class="w-full py-3 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition">
+                เข้าใจแล้ว
+            </button>
+        </div>
+    </div>
+
+    <!-- PWA Service Worker, Auto-dismiss & Cookie Consent Handler -->
+    <script>
+        let deferredPwaPrompt = null;
+        let pwaAutoDismissTimer = null;
+
+        // Check if running as installed standalone PWA
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        const isAlreadyInstalled = isStandalone || localStorage.getItem('pwa_app_installed') === 'true';
+
+        // Check if iOS
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        // Function to hide all install UI elements
+        function hideAllPwaInstallElements() {
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.classList.add('hidden');
+                banner.classList.remove('flex');
+            }
+            document.querySelectorAll('.pwa-install-item').forEach((el) => {
+                el.style.display = 'none';
+            });
+        }
+
+        // Run immediate check
+        if (isAlreadyInstalled) {
+            document.addEventListener('DOMContentLoaded', hideAllPwaInstallElements);
+            hideAllPwaInstallElements();
+        }
+
+        // 1. Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((reg) => {
+                        console.log('[PWA] Service Worker registered with scope:', reg.scope);
+                    })
+                    .catch((err) => {
+                        console.warn('[PWA] Service Worker registration failed:', err);
+                    });
+            });
+        }
+
+        // 2. Listen for Chrome/Edge/Android beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPwaPrompt = e;
+            if (!isAlreadyInstalled) {
+                showPwaBannerIfEligible();
+            }
+        });
+
+        // 3. Listen for appinstalled event (fired when user completes installation)
+        window.addEventListener('appinstalled', () => {
+            console.log('[PWA] App successfully installed!');
+            localStorage.setItem('pwa_app_installed', 'true');
+            hideAllPwaInstallElements();
+        });
+
+        function showPwaBannerIfEligible() {
+            if (isAlreadyInstalled) return;
+            const dismissedTime = localStorage.getItem('pwa_banner_dismissed_time');
+            if (dismissedTime && (Date.now() - parseInt(dismissedTime, 10)) < 24 * 60 * 60 * 1000) {
+                // Dismissed within last 24 hours
+                return;
+            }
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.classList.remove('hidden');
+                banner.classList.add('flex');
+                if (window.lucide) lucide.createIcons();
+
+                // Auto-dismiss after 5 seconds
+                if (pwaAutoDismissTimer) clearTimeout(pwaAutoDismissTimer);
+                pwaAutoDismissTimer = setTimeout(() => {
+                    dismissPwaBanner(false);
+                }, 5000);
+
+                // Pause auto-dismiss if user hovers over banner
+                banner.addEventListener('mouseenter', () => {
+                    if (pwaAutoDismissTimer) clearTimeout(pwaAutoDismissTimer);
+                });
+                banner.addEventListener('mouseleave', () => {
+                    pwaAutoDismissTimer = setTimeout(() => {
+                        dismissPwaBanner(false);
+                    }, 3000);
+                });
+            }
+        }
+
+        function dismissPwaBanner(saveTimestamp = true) {
+            if (pwaAutoDismissTimer) clearTimeout(pwaAutoDismissTimer);
+            const banner = document.getElementById('pwa-install-banner');
+            if (banner) {
+                banner.classList.add('hidden');
+                banner.classList.remove('flex');
+            }
+            if (saveTimestamp) {
+                localStorage.setItem('pwa_banner_dismissed_time', Date.now().toString());
+            }
+        }
+
+        function handlePwaInstallClick() {
+            if (pwaAutoDismissTimer) clearTimeout(pwaAutoDismissTimer);
+            if (deferredPwaPrompt) {
+                deferredPwaPrompt.prompt();
+                deferredPwaPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('[PWA] User accepted the install prompt');
+                        localStorage.setItem('pwa_app_installed', 'true');
+                        hideAllPwaInstallElements();
+                    }
+                    deferredPwaPrompt = null;
+                });
+            } else if (isIos) {
+                // Show iOS guide modal
+                const modal = document.getElementById('pwa-ios-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    if (window.lucide) lucide.createIcons();
+                }
+            } else {
+                alert('คุณสามารถกดปุ่ม "ติดตั้งแอป" หรือ "Add to Home Screen" จากเมนูของเบราว์เซอร์ได้ทันทีครับ ✨');
+            }
+        }
+
+        function closeIosPwaModal() {
+            const modal = document.getElementById('pwa-ios-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            dismissPwaBanner(true);
+        }
+
+        // Trigger check for iOS after slight delay
+        if (isIos && !isAlreadyInstalled) {
+            setTimeout(showPwaBannerIfEligible, 1500);
+        }
+
+        // =========================================================================
+        // Cookie Consent (PDPA) Management
+        // =========================================================================
+        function initCookieConsent() {
+            const consent = localStorage.getItem('cookie_consent_accepted');
+            if (!consent) {
+                setTimeout(() => {
+                    const cookieBanner = document.getElementById('cookie-consent-banner');
+                    if (cookieBanner) {
+                        cookieBanner.classList.remove('hidden');
+                        cookieBanner.classList.add('flex');
+                        if (window.lucide) lucide.createIcons();
+                    }
+                }, 800);
+            }
+        }
+
+        function acceptCookieConsent() {
+            localStorage.setItem('cookie_consent_accepted', 'true');
+            const cookieBanner = document.getElementById('cookie-consent-banner');
+            if (cookieBanner) {
+                cookieBanner.classList.add('hidden');
+                cookieBanner.classList.remove('flex');
+            }
+        }
+
+        function dismissCookieConsent() {
+            localStorage.setItem('cookie_consent_accepted', 'dismissed');
+            const cookieBanner = document.getElementById('cookie-consent-banner');
+            if (cookieBanner) {
+                cookieBanner.classList.add('hidden');
+                cookieBanner.classList.remove('flex');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initCookieConsent);
     </script>
     <!-- Custom Main JS with Cache Busting -->
-    <script src="{% static 'js/main.js' %}?v=20260831_dark_ok"></script>
+    <script src="{% static 'js/thailand_map.js' %}?v=20260902_platinum_harmony"></script>
+    <script src="{% static 'js/main.js' %}?v=20260902_clean_js_v3"></script>
     {% block extra_js %}{% endblock %}
 
 </body>

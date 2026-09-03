@@ -49,7 +49,11 @@
                         <a href="{% url 'mark_notification_read' pk=notif.pk %}" class="flex items-center gap-3.5 flex-1 min-w-0">
                             <!-- Avatar + Mini Action Icon Badge -->
                             <div class="relative shrink-0">
-                                {% if notif.actor.profile.get_avatar_url %}
+                                {% if notif.verb == 'badge_unlocked' %}
+                                    <div class="w-11 h-11 rounded-2xl bg-white text-black border border-white/20 flex items-center justify-center font-black shadow-lg shadow-white/10">
+                                        <i data-lucide="award" class="w-6 h-6 text-black"></i>
+                                    </div>
+                                {% elif notif.actor.profile.get_avatar_url %}
                                     <img src="{{ notif.actor.profile.get_avatar_url }}" alt="Avatar" class="w-11 h-11 rounded-full object-cover bg-black border border-zinc-800">
                                 {% else %}
                                     <div class="w-11 h-11 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-black text-white text-sm">
@@ -70,28 +74,37 @@
                                     <span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white text-black flex items-center justify-center border-2 border-black shadow-md">
                                         <i data-lucide="user-plus" class="w-2.5 h-2.5 text-black"></i>
                                     </span>
+                                {% elif notif.verb == 'badge_unlocked' %}
+                                    <span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-zinc-900 text-white flex items-center justify-center border-2 border-black shadow-md">
+                                        <i data-lucide="sparkles" class="w-2.5 h-2.5 text-amber-400"></i>
+                                    </span>
                                 {% endif %}
                             </div>
 
                             <!-- Seamless Proportionate Sentence -->
                             <div class="flex-1 min-w-0 pr-1">
                                 <p class="text-xs md:text-sm text-zinc-300 leading-snug break-words">
-                                    <strong class="font-bold text-white group-hover:text-zinc-200 transition">{{ notif.actor.profile.get_display_name|default:notif.actor.username }}</strong>
-                                    {% if notif.verb == 'like_post' %}
-                                        <span class="text-zinc-300">ถูกใจโพสต์ของคุณ</span>
-                                        {% if notif.post.location_name %}
-                                            <span class="text-white font-medium">"{{ notif.post.location_name }}"</span>
-                                        {% endif %}
-                                    {% elif notif.verb == 'comment_post' %}
-                                        <span class="text-zinc-300">แสดงความคิดเห็น:</span>
-                                        <span class="text-zinc-200 font-medium">"{{ notif.comment.content|truncatechars:35 }}"</span>
-                                    {% elif notif.verb == 'like_comment' %}
-                                        <span class="text-zinc-300">ถูกใจความคิดเห็นของคุณ:</span>
-                                        <span class="text-zinc-200 font-medium">"{{ notif.comment.content|truncatechars:30 }}"</span>
-                                    {% elif notif.verb == 'follow_user' %}
-                                        <span class="text-zinc-300">เริ่มติดตามคุณ</span>
+                                    {% if notif.verb == 'badge_unlocked' %}
+                                        <strong class="font-bold text-white group-hover:text-zinc-200 transition">ยินดีด้วย! คุณปลดล็อกเหรียญรางวัลใหม่ 🎖️</strong>
+                                        <span class="block text-xs text-zinc-400 mt-0.5">กดเพื่อดูเหรียญรางวัลและความคืบหน้าในหน้าโปรไฟล์ของคุณ</span>
                                     {% else %}
-                                        <span class="text-zinc-300">{{ notif.get_message }}</span>
+                                        <strong class="font-bold text-white group-hover:text-zinc-200 transition">{{ notif.actor.profile.get_display_name|default:notif.actor.username }}</strong>
+                                        {% if notif.verb == 'like_post' %}
+                                            <span class="text-zinc-300">ถูกใจโพสต์ของคุณ</span>
+                                            {% if notif.post.location_name %}
+                                                <span class="text-white font-medium">"{{ notif.post.location_name }}"</span>
+                                            {% endif %}
+                                        {% elif notif.verb == 'comment_post' %}
+                                            <span class="text-zinc-300">แสดงความคิดเห็น:</span>
+                                            <span class="text-zinc-200 font-medium">"{{ notif.comment.content|truncatechars:35 }}"</span>
+                                        {% elif notif.verb == 'like_comment' %}
+                                            <span class="text-zinc-300">ถูกใจความคิดเห็นของคุณ:</span>
+                                            <span class="text-zinc-200 font-medium">"{{ notif.comment.content|truncatechars:30 }}"</span>
+                                        {% elif notif.verb == 'follow_user' %}
+                                            <span class="text-zinc-300">เริ่มติดตามคุณ</span>
+                                        {% else %}
+                                            <span class="text-zinc-300">{{ notif.get_message }}</span>
+                                        {% endif %}
                                     {% endif %}
                                 </p>
                                 <span class="text-[11px] text-zinc-500 font-mono mt-0.5 block">{{ notif.get_time_ago }}</span>

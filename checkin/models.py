@@ -2,7 +2,12 @@ from django.db import models
 from django.contrib.auth.models import User
 from cloudinary.models import CloudinaryField
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models import Avg, Count, F
+from django.db.models.signals import post_save, post_delete, pre_save
+from django.dispatch import receiver
 import os
+from .utils import delete_cloudinary_asset
 
 class Post(models.Model):
     """
@@ -77,9 +82,26 @@ class Post(models.Model):
         verbose_name="ผู้ร่วมทริปที่ถูกแท็ก"
     )
 
+    province = models.ForeignKey(
+        'Province',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='posts',
+        verbose_name="จังหวัด"
+    )
+
     is_hidden = models.BooleanField(default=False, verbose_name="ซ่อนโพสต์")
-    avg_rating = models.FloatField(default=0.0, verbose_name="คะแนนเฉลี่ย (1-5 ดาว)")
-    review_count = models.PositiveIntegerField(default=0, verbose_name="จำนวนรีวิว")
+    avg_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="คะแนนรีวิวเฉลี่ย"
+    )
+    review_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="จำนวนรีวิวทั้งหมด"
+    )
     views_count = models.PositiveIntegerField(default=0, verbose_name="จำนวนการเข้าชม")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="แก้ไขล่าสุด")
@@ -93,6 +115,20 @@ class Post(models.Model):
         user_str = self.user.username if self.user else "Anonymous"
         loc_str = self.location_name or (f"พิกัด ({self.latitude}, {self.longitude})" if self.latitude else "ไม่มีพิกัด")
         return f"{user_str} @ {loc_str} - {self.created_at.strftime('%d/%m/%Y %H:%M')}"
+
+    def update_rating_stats(self):
+        """
+        อัปเดตคะแนนเฉลี่ย avg_rating และ review_count บน Post
+        """
+        stats = self.reviews.aggregate(
+            avg_score=Avg('score'),
+            count=Count('id')
+        )
+        avg = stats['avg_score'] or 0.00
+        count = stats['count'] or 0
+        self.avg_rating = round(avg, 2)
+        self.review_count = count
+        self.save(update_fields=['avg_rating', 'review_count'])
 
     @property
     def has_coordinates(self):
@@ -110,7 +146,16 @@ class Post(models.Model):
 
     @property
     def total_comments(self):
-        return self.comments.count()
+        return self.comments.filter(is_hidden=False).count()
+
+    @property
+    def extra_tagged_count(self):
+        cnt = self.tagged_users.count()
+        return cnt - 2 if cnt > 2 else 0
+
+    @property
+    def first_two_tagged_users(self):
+        return self.tagged_users.all()[:2]
 
     @property
     def has_multiple_images(self):
@@ -266,6 +311,7 @@ class Comment(models.Model):
         blank=True,
         verbose_name="ผู้กดถูกใจคอมเมนต์"
     )
+    is_hidden = models.BooleanField(default=False, verbose_name="ซ่อนความคิดเห็น")
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name="เวลาแสดงความคิดเห็น"
@@ -322,6 +368,11 @@ class Profile(models.Model):
         default="from-emerald-500 to-teal-400",
         verbose_name="ธีมสีอวาตาร์"
     )
+    is_banned = models.BooleanField(
+        default=False,
+        verbose_name="ถูกระงับ/แบนบัญชี",
+        help_text="หากเปิดใช้งาน ผู้ใช้จะไม่สามารถเข้าสู่ระบบหรือใช้งานระบบได้"
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="แก้ไขล่าสุด")
 
@@ -344,6 +395,13 @@ class Profile(models.Model):
     def get_avatar_url(self):
         if not self.avatar:
             return None
+
+        # ตรวจสอบกรณีรูปเป็น External URL เช่น Google Avatar ที่เก็บผ่าน CloudinaryResource
+        if hasattr(self.avatar, 'public_id') and str(self.avatar.public_id).startswith(('http://', 'https://')):
+            if getattr(self.avatar, 'format', None):
+                return f"{self.avatar.public_id}.{self.avatar.format}"
+            return str(self.avatar.public_id)
+
         img_str = str(self.avatar).strip()
         if not img_str:
             return None
@@ -416,9 +474,77 @@ class Follow(models.Model):
         return f"@{self.follower.username} follows @{self.following.username}"
 
 
+
+# -----------------------------------------------------------------------------
+# Gamification Models (Province, Badge, UserBadge)
+# -----------------------------------------------------------------------------
+class Province(models.Model):
+    """
+    Lookup table เก็บข้อมูล 77 จังหวัดของประเทศไทย
+    """
+    name_th = models.CharField(max_length=100, unique=True, verbose_name="ชื่อจังหวัด (ไทย)")
+    name_en = models.CharField(max_length=100, unique=True, verbose_name="ชื่อจังหวัด (อังกฤษ)")
+    svg_id = models.CharField(max_length=50, unique=True, verbose_name="SVG Element ID")
+    region = models.CharField(max_length=50, blank=True, null=True, verbose_name="ภูมิภาค")
+
+    class Meta:
+        ordering = ['name_th']
+        verbose_name = "จังหวัด"
+        verbose_name_plural = "จังหวัดทั้งหมด"
+
+    def __str__(self):
+        return f"{self.name_th} ({self.name_en})"
+
+
+class Badge(models.Model):
+    """
+    Model สำหรับเก็บข้อมูลเหรียญรางวัล Gamification
+    """
+    CRITERIA_TYPES = [
+        ('PROVINCE_COUNT', 'จำนวนจังหวัดที่พิชิต'),
+        ('TAG_COUNT', 'จำนวนโพสต์ในหมวดหมู่/แท็ก'),
+        ('TIME_RANGE', 'ช่วงเวลาโพสต์ (เช้า/ดึก)'),
+        ('POST_COUNT', 'จำนวนโพสต์รวม'),
+    ]
+
+    code = models.CharField(max_length=50, unique=True, verbose_name="รหัสเหรียญ")
+    name = models.CharField(max_length=100, verbose_name="ชื่อเหรียญรางวัล")
+    description = models.TextField(verbose_name="คำอธิบายเงื่อนไข")
+    icon = models.CharField(max_length=255, verbose_name="ไอคอน/สัญลักษณ์")
+    criteria_type = models.CharField(max_length=50, choices=CRITERIA_TYPES, verbose_name="ประเภทเงื่อนไข")
+    criteria_config = models.JSONField(default=dict, blank=True, verbose_name="การตั้งค่าเงื่อนไข (JSON)")
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = "เหรียญรางวัล"
+        verbose_name_plural = "เหรียญรางวัลทั้งหมด"
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class UserBadge(models.Model):
+    """
+    Model สำหรับเก็บเหรียญรางวัลที่ผู้ใช้ได้รับแล้ว
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='badges', verbose_name="ผู้ได้รับเหรียญ")
+    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name='awarded_to', verbose_name="เหรียญรางวัล")
+    awarded_at = models.DateTimeField(auto_now_add=True, verbose_name="วันที่ได้รับ")
+    related_post = models.ForeignKey(Post, on_delete=models.SET_NULL, null=True, blank=True, related_name='triggered_badges', verbose_name="โพสต์ที่จุดชนวน")
+
+    class Meta:
+        ordering = ['-awarded_at']
+        unique_together = ('user', 'badge')
+        verbose_name = "เหรียญรางวัลของผู้ใช้"
+        verbose_name_plural = "เหรียญรางวัลของผู้ใช้ทั้งหมด"
+
+    def __str__(self):
+        return f"@{self.user.username} - {self.badge.name}"
+
+
 class Notification(models.Model):
     """
-    Model สำหรับเก็บการแจ้งเตือนต่างๆ (กดไลก์โพสต์, กดไลก์คอมเมนต์, แสดงความคิดเห็น, การติดตาม)
+    Model สำหรับเก็บการแจ้งเตือนต่างๆ (กดไลก์โพสต์, กดไลก์คอมเมนต์, แสดงความคิดเห็น, การติดตาม, ปลดล็อกเหรียญ)
     """
     VERB_CHOICES = [
         ('like_post', 'ถูกใจโพสต์'),
@@ -426,6 +552,7 @@ class Notification(models.Model):
         ('comment_post', 'แสดงความคิดเห็น'),
         ('follow_user', 'เริ่มติดตามคุณ'),
         ('post_tagged', 'แท็กคุณในโพสต์ทริป'),
+        ('badge_unlocked', 'ปลดล็อกเหรียญรางวัล'),
     ]
 
     recipient = models.ForeignKey(
@@ -510,6 +637,8 @@ class Notification(models.Model):
         elif self.verb == 'post_tagged':
             loc = f" '{self.post.location_name}'" if self.post and self.post.location_name else ""
             return f"{actor_name} แท็กคุณในโพสต์ทริป{loc}"
+        elif self.verb == 'badge_unlocked':
+            return f"🎉 ยินดีด้วย! คุณได้รับการปลดล็อกเหรียญรางวัลใหม่"
         return f"{actor_name} มีการเคลื่อนไหวใหม่"
 
 
@@ -524,3 +653,308 @@ def create_or_save_user_profile(sender, instance, created, **kwargs):
     else:
         if not hasattr(instance, 'profile'):
             Profile.objects.create(user=instance, display_name=instance.first_name or instance.username)
+
+
+class Report(models.Model):
+    """
+    Model สำหรับเก็บข้อมูลการรายงานเนื้อหา/ผู้ใช้งาน (Post or Comment Report)
+    """
+    REASON_CHOICES = [
+        ('spam', 'ขยะ / สแปม (Spam)'),
+        ('inappropriate', 'เนื้อหาไม่เหมาะสม / ลามกอนาจาร'),
+        ('harassment', 'การคุกคาม / ความเกลียดชัง'),
+        ('fake_news', 'ข้อมูลเท็จ / หลอกลวง'),
+        ('rules_violation', 'ละเมิดกฎชุมชน'),
+        ('other', 'อื่นๆ'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'รอการตรวจสอบ'),
+        ('resolved', 'ดำเนินการเรียบร้อย (ซ่อน/ลบ)'),
+        ('dismissed', 'ปฏิเสธรายงาน'),
+    ]
+
+    reporter = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='reports_submitted',
+        verbose_name="ผู้รายงาน"
+    )
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports',
+        verbose_name="โพสต์ที่ถูกรายงาน"
+    )
+    comment = models.ForeignKey(
+        Comment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports',
+        verbose_name="ความคิดเห็นที่ถูกรายงาน"
+    )
+    reported_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports_against',
+        verbose_name="ผู้ใช้ที่ถูกรายงาน"
+    )
+    reason = models.CharField(
+        max_length=50,
+        choices=REASON_CHOICES,
+        default='other',
+        verbose_name="เหตุผลในการรายงาน"
+    )
+    details = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="รายละเอียดเพิ่มเติม"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="สถานะรายงาน"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="เวลาที่รายงาน"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="เวลาที่อัปเดต"
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "การรายงาน"
+        verbose_name_plural = "การรายงานทั้งหมด"
+
+    def __str__(self):
+        if self.post:
+            item_str = f"โพสต์ #{self.post_id}"
+        elif self.comment:
+            item_str = f"ความคิดเห็น #{self.comment_id}"
+        elif self.reported_user:
+            item_str = f"ผู้ใช้ @{self.reported_user.username}"
+        else:
+            item_str = "รายการ"
+        return f"รายงาน {item_str} โดย @{self.reporter.username} [{self.get_status_display()}]"
+
+
+SCORE_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+class PlaceReview(models.Model):
+    """
+    Model สำหรับเก็บข้อมูลการรีวิวและให้คะแนนสถานที่ (1-5 ดาว)
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='place_reviews',
+        verbose_name="ผู้เขียนรีวิว"
+    )
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='reviews',
+        verbose_name="โพสต์/สถานที่ที่ถูกรีวิว"
+    )
+    score = models.PositiveSmallIntegerField(
+        choices=SCORE_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        verbose_name="คะแนนรวม (1-5 ดาว)"
+    )
+    aspect_scenery = models.PositiveSmallIntegerField(
+        choices=SCORE_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        null=True,
+        blank=True,
+        verbose_name="คะแนนด้านบรรยากาศ/วิว"
+    )
+    aspect_transport = models.PositiveSmallIntegerField(
+        choices=SCORE_CHOICES,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        null=True,
+        blank=True,
+        verbose_name="คะแนนด้านความสะดวกในการเดินทาง"
+    )
+    review_text = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="ข้อความรีวิว"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="สร้างเมื่อ"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="แก้ไขล่าสุด"
+    )
+
+    class Meta:
+        unique_together = ('user', 'post')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['post']),
+        ]
+        verbose_name = "รีวิวสถานที่"
+        verbose_name_plural = "รีวิวสถานที่ทั้งหมด"
+
+    def __str__(self):
+        return f"{self.user.username} rated {self.score}★ on Post #{self.post_id}"
+
+
+@receiver(post_save, sender=PlaceReview)
+@receiver(post_delete, sender=PlaceReview)
+def update_post_review_stats(sender, instance, **kwargs):
+    if instance.post_id:
+        post = Post.objects.filter(pk=instance.post_id).first()
+        if post:
+            post.update_rating_stats()
+
+
+class PasswordResetOTP(models.Model):
+    """
+    Model สำหรับเก็บรหัสยืนยัน 6 หลัก (OTP) สำหรับการรีเซ็ตรหัสผ่านทางอีเมล (อายุ 60 วินาที พร้อมระบบป้องกัน Brute-force & Anti-Spam)
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='reset_otps',
+        verbose_name="ผู้ใช้"
+    )
+    email = models.EmailField(verbose_name="อีเมลที่ส่งรหัส")
+    otp_code = models.CharField(max_length=6, verbose_name="รหัส OTP 6 หลัก")
+    attempts = models.PositiveIntegerField(default=0, verbose_name="จำนวนครั้งที่กรอกผิด")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="สร้างเมื่อ")
+    is_used = models.BooleanField(default=False, verbose_name="ถูกใช้งานแล้ว")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "รหัสยืนยันรีเซ็ตรหัสผ่าน (OTP)"
+        verbose_name_plural = "รหัสยืนยันรีเซ็ตรหัสผ่าน (OTP) ทั้งหมด"
+
+    def __str__(self):
+        return f"OTP for {self.user.username} ({self.email}): {self.otp_code} [{'Used' if self.is_used else 'Active'}]"
+
+    def is_valid(self, expiration_seconds=180):
+        """
+        ตรวจสอบว่ารหัส OTP ยังไม่ถูกใช้, ไม่หมดอายุ (ค่าเริ่มต้น 180 วินาที = 3 นาที เผื่อเวลาส่งอีเมล) และไม่เกินจำนวนครั้งที่อนุญาต (5 ครั้ง)
+        """
+        from django.utils import timezone
+        import datetime
+        if self.is_used:
+            return False
+        if self.attempts >= 5:
+            return False
+        expiry_time = self.created_at + datetime.timedelta(seconds=expiration_seconds)
+        return timezone.now() <= expiry_time
+
+    def time_remaining_seconds(self, expiration_seconds=60):
+        """
+        คืนค่าจำนวนวินาทีที่เหลืออยู่ของรหัส OTP (0-60 วินาที)
+        """
+        from django.utils import timezone
+        import datetime
+        expiry_time = self.created_at + datetime.timedelta(seconds=expiration_seconds)
+        remaining = (expiry_time - timezone.now()).total_seconds()
+        return max(0, int(remaining))
+
+    @classmethod
+    def create_otp_for_user(cls, user, email):
+        """
+        สร้างและบันทึกรหัส OTP 6 หลักใหม่สำหรับผู้ใช้
+        """
+        import secrets
+        code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+        return cls.objects.create(
+            user=user,
+            email=email,
+            otp_code=code
+        )
+
+
+# =============================================================================
+# Cloudinary Automatic File Cleanup Signals
+# =============================================================================
+
+@receiver(pre_save, sender=Post)
+def auto_delete_old_post_image_on_update(sender, instance, **kwargs):
+    """
+    ลบรูปเดิมบน Cloudinary เมื่อผู้ใช้แก้ไขและอัปโหลดรูปใหม่ทับรูปเดิมใน Post
+    """
+    if not instance.pk:
+        return
+    try:
+        old_post = sender.objects.get(pk=instance.pk)
+        if old_post.image and str(old_post.image) != str(instance.image):
+            delete_cloudinary_asset(old_post.image)
+    except sender.DoesNotExist:
+        pass
+
+
+@receiver(post_delete, sender=Post)
+def auto_delete_post_image_on_delete(sender, instance, **kwargs):
+    """
+    ลบรูปภาพหลักบน Cloudinary ทันทีเมื่อโพสต์ถูกลบออกจากระบบ
+    """
+    if instance.image:
+        delete_cloudinary_asset(instance.image)
+
+
+@receiver(pre_save, sender=PostImage)
+def auto_delete_old_postimage_on_update(sender, instance, **kwargs):
+    """
+    ลบรูปภาพเพิ่มเติมเดิมบน Cloudinary เมื่อมีการแก้ไข/เปลี่ยนรูปใน PostImage
+    """
+    if not instance.pk:
+        return
+    try:
+        old_post_img = sender.objects.get(pk=instance.pk)
+        if old_post_img.image and str(old_post_img.image) != str(instance.image):
+            delete_cloudinary_asset(old_post_img.image)
+    except sender.DoesNotExist:
+        pass
+
+
+@receiver(post_delete, sender=PostImage)
+def auto_delete_postimage_on_delete(sender, instance, **kwargs):
+    """
+    ลบรูปภาพเพิ่มเติมบน Cloudinary ทันทีเมื่อ PostImage ถูกลบ
+    """
+    if instance.image:
+        delete_cloudinary_asset(instance.image)
+
+
+@receiver(pre_save, sender=Profile)
+def auto_delete_old_avatar_on_update(sender, instance, **kwargs):
+    """
+    ลบรูปโปรไฟล์เดิมบน Cloudinary เมื่อผู้ใช้อัปโหลดรูป Avatar ใหม่
+    """
+    if not instance.pk:
+        return
+    try:
+        old_profile = sender.objects.get(pk=instance.pk)
+        if old_profile.avatar and str(old_profile.avatar) != str(instance.avatar):
+            delete_cloudinary_asset(old_profile.avatar)
+    except sender.DoesNotExist:
+        pass
+
+
+@receiver(post_delete, sender=Profile)
+def auto_delete_avatar_on_delete(sender, instance, **kwargs):
+    """
+    ลบรูปโปรไฟล์บน Cloudinary เมื่อ Profile ถูกลบ
+    """
+    if instance.avatar:
+        delete_cloudinary_asset(instance.avatar)
+
+
+
