@@ -936,6 +936,7 @@ def login_view(request):
             return redirect('admin_dashboard')
         return redirect('post_list')
         
+    form = AuthenticationForm()
     if request.method == 'POST':
         login_input = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
@@ -951,7 +952,7 @@ def login_view(request):
             # หากเป็น Admin หรือ Staff จะไม่อนุญาตให้ล็อกอินผ่านหน้าสมาชิกทั่วไป (ทำเหมือนไม่มีรหัสนั้นอยู่)
             if user.is_staff or user.is_superuser:
                 messages.error(request, 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง')
-                return render(request, 'checkin/login.html', {'form': AuthenticationForm(), 'next': request.GET.get('next', '')})
+                return render(request, 'checkin/login.html', {'form': form, 'next': request.GET.get('next', '')})
 
             if hasattr(user, 'profile') and user.profile.is_banned:
                 messages.error(request, 'บัญชีของคุณถูกระงับการใช้งานเนื่องจากละเมิดกฎชุมชน กรุณาติดต่อผู้ดูแลระบบ')
@@ -964,8 +965,6 @@ def login_view(request):
             return redirect(next_url)
         else:
             messages.error(request, 'ชื่อผู้ใช้/อีเมล หรือรหัสผ่านไม่ถูกต้อง')
-    else:
-        form = AuthenticationForm()
 
     return render(request, 'checkin/login.html', {'form': form, 'next': request.GET.get('next', '')})
 

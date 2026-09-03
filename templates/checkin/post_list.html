@@ -478,9 +478,8 @@
                 exploreMap.fitBounds(markers, { padding: [30, 30] });
             }
         }
-    }
 
-    // Request GPS location on load
+        // Request GPS location on load
     if ("geolocation" in navigator && !sessionStorage.getItem('geo_requested')) {
         navigator.geolocation.getCurrentPosition(function(pos) {
             sessionStorage.setItem('geo_requested', '1');
