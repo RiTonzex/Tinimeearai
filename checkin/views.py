@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.db.models import Count, Q, F
 from django.http import JsonResponse, HttpResponseForbidden
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
 from .models import Post, PostImage, Comment, Follow, Notification, Profile, Report, PlaceReview, Province, Badge, UserBadge, PasswordResetOTP
 from .forms import PostForm, PostEditForm, ThaiUserCreationForm, ProfileUpdateForm, ThaiPasswordChangeForm, CommentForm, ForgotPasswordRequestForm, VerifyOTPOnlyForm, SetNewPasswordForm, DeleteAccountForm
 from .utils import calculate_haversine_distance, get_live_weather, validate_image_file, upload_post_image_dedup, upload_user_avatar
@@ -1886,20 +1887,28 @@ def admin_dashboard(request):
     )
     reports = reports_qs.filter(status=status_filter)
 
-    # User Search & Ban Queue
+    # User Search & Ban Queue with Pagination (10 users per page)
     user_q = request.GET.get('user_q', '').strip()
+    users_qs = User.objects.select_related('profile').order_by('-date_joined')
     if user_q:
         clean_q = user_q.lstrip('@').strip()
-        users_list = User.objects.select_related('profile').filter(
+        users_qs = users_qs.filter(
             Q(username__icontains=user_q) |
             Q(username__icontains=clean_q) |
             Q(email__icontains=user_q) |
             Q(email__icontains=clean_q) |
             Q(profile__display_name__icontains=user_q) |
             Q(profile__display_name__icontains=clean_q)
-        ).distinct().order_by('-date_joined')[:20]
-    else:
-        users_list = []
+        ).distinct()
+
+    user_paginator = Paginator(users_qs, 10)
+    user_page_number = request.GET.get('user_page', 1)
+    users_page = user_paginator.get_page(user_page_number)
+
+    try:
+        user_page_range = user_paginator.get_elided_page_range(users_page.number, on_each_side=2, on_ends=1)
+    except Exception:
+        user_page_range = user_paginator.page_range
 
     context = {
         'total_posts': total_posts,
@@ -1915,7 +1924,10 @@ def admin_dashboard(request):
         'category_data_json': category_data,
         'reports': reports,
         'status_filter': status_filter,
-        'users_list': users_list,
+        'users_list': users_page,
+        'users_page': users_page,
+        'user_paginator': user_paginator,
+        'user_page_range': user_page_range,
         'user_q': user_q,
     }
     return render(request, 'checkin/admin_dashboard.html', context)

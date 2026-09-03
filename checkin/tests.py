@@ -355,6 +355,25 @@ class CheckinAppTests(TestCase):
         resp_login_banned = self.client.post(reverse('login'), {'username': 'testuser', 'password': 'password123'}, follow=True)
         self.assertContains(resp_login_banned, 'ถูกระงับการใช้งาน')
 
+        # Test user pagination in admin dashboard (10 per page)
+        for i in range(15):
+            User.objects.create_user(username=f'pageuser{i}', password='password123')
+        self.client.login(username='adminstaff', password='adminpassword')
+        resp_page1 = self.client.get(reverse('admin_dashboard'))
+        self.assertEqual(resp_page1.status_code, 200)
+        self.assertEqual(len(resp_page1.context['users_list']), 10)
+        self.assertTrue(resp_page1.context['users_page'].has_next())
+
+        resp_page2 = self.client.get(reverse('admin_dashboard') + '?user_page=2')
+        self.assertEqual(resp_page2.status_code, 200)
+        self.assertTrue(len(resp_page2.context['users_list']) >= 5)
+
+        # Test user search
+        resp_search = self.client.get(reverse('admin_dashboard') + '?user_q=pageuser3')
+        self.assertEqual(resp_search.status_code, 200)
+        self.assertEqual(len(resp_search.context['users_list']), 1)
+        self.assertEqual(resp_search.context['users_list'][0].username, 'pageuser3')
+
     def test_advanced_search_and_province_filter(self):
         self.client.login(username='testuser', password='password123')
 

@@ -249,16 +249,16 @@
 
             <!-- Filter Tabs -->
             <div class="flex items-center gap-1.5 p-1 bg-zinc-950/80 rounded-2xl border border-white/10 self-start md:self-auto">
-                <a href="?status=pending" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {% if status_filter == 'pending' %}bg-rose-500 text-white shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+                <a href="?status=pending{% if user_q %}&user_q={{ user_q|urlencode }}{% endif %}{% if users_page.number > 1 %}&user_page={{ users_page.number }}{% endif %}" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {% if status_filter == 'pending' %}bg-rose-500 text-white shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
                     <span>รอตรวจสอบ</span>
                     {% if pending_reports > 0 %}
                     <span class="px-1.5 py-0.5 text-[10px] rounded-full bg-black/40 text-white font-mono">{{ pending_reports }}</span>
                     {% endif %}
                 </a>
-                <a href="?status=resolved" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'resolved' %}bg-emerald-500 text-white shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+                <a href="?status=resolved{% if user_q %}&user_q={{ user_q|urlencode }}{% endif %}{% if users_page.number > 1 %}&user_page={{ users_page.number }}{% endif %}" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'resolved' %}bg-emerald-500 text-white shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
                     ดำเนินการแล้ว
                 </a>
-                <a href="?status=dismissed" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'dismissed' %}bg-zinc-800 text-zinc-200 shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
+                <a href="?status=dismissed{% if user_q %}&user_q={{ user_q|urlencode }}{% endif %}{% if users_page.number > 1 %}&user_page={{ users_page.number }}{% endif %}" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if status_filter == 'dismissed' %}bg-zinc-800 text-zinc-200 shadow-md{% else %}text-zinc-400 hover:text-white{% endif %}">
                     ปฏิเสธแล้ว
                 </a>
             </div>
@@ -422,21 +422,24 @@
     </div>
 
     <!-- 4. USER SEARCH & BAN QUEUE (ระบบค้นหาผู้ใช้เพื่อสั่งระงับ/แบนบัญชี) -->
-    <div class="glass-panel rounded-3xl p-6 md:p-8 space-y-6">
+    <div class="glass-panel rounded-3xl p-6 md:p-8 space-y-6" id="users-section">
         
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                <div class="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
                     <i data-lucide="user-x" class="w-6 h-6"></i>
                 </div>
                 <div>
                     <h2 class="text-xl font-extrabold text-white">ค้นหาผู้ใช้และจัดการสิทธิ์ (Ban Queue)</h2>
-                    <p class="text-xs text-zinc-400">ค้นหาบัญชีผู้ใช้เพื่อตรวจสอบ สั่งระงับสิทธิ์ (Ban) หรือ ปลดระงับบัญชี</p>
+                    <p class="text-xs text-zinc-400">ค้นหาบัญชีผู้ใช้เพื่อตรวจสอบ สั่งระงับสิทธิ์ (Ban) หรือ ปลดระงับบัญชี (แสดง 10 บัญชีต่อหน้า)</p>
                 </div>
             </div>
 
             <!-- Search Form -->
-            <form method="GET" action="{% url 'admin_dashboard' %}" class="flex items-center gap-2 w-full md:w-80">
+            <form method="GET" action="{% url 'admin_dashboard' %}#users-section" class="flex items-center gap-2 w-full md:w-88">
+                {% if status_filter and status_filter != 'pending' %}
+                <input type="hidden" name="status" value="{{ status_filter }}">
+                {% endif %}
                 <div class="relative w-full">
                     <i data-lucide="search" class="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
                     <input type="text" 
@@ -445,9 +448,16 @@
                            placeholder="ค้นหาชื่อผู้ใช้, อีเมล หรือ Display Name..."
                            class="w-full bg-zinc-950/90 border border-white/10 rounded-2xl pl-10 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white transition">
                 </div>
-                <button type="submit" class="px-4 py-2 rounded-2xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition shrink-0 shadow-lg shadow-white/10">
+                <button type="submit" class="px-4 py-2 rounded-2xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition shrink-0 shadow-lg shadow-white/10 active:scale-95">
                     ค้นหา
                 </button>
+                {% if user_q %}
+                <a href="{% url 'admin_dashboard' %}{% if status_filter and status_filter != 'pending' %}?status={{ status_filter }}{% endif %}#users-section" 
+                   class="w-8 h-8 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-bold text-xs transition shrink-0 flex items-center justify-center border border-white/10" 
+                   title="ล้างคำค้นหา">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </a>
+                {% endif %}
             </form>
         </div>
 
@@ -502,16 +512,77 @@
             {% empty %}
             <div class="col-span-full py-10 text-center text-zinc-500">
                 {% if user_q %}
-                    <p class="italic text-zinc-400">ไม่พบผู้ใช้งานตามคำค้นหา "{{ user_q }}"</p>
+                    <div class="flex flex-col items-center justify-center gap-2 text-zinc-400">
+                        <i data-lucide="search-x" class="w-8 h-8 text-zinc-600"></i>
+                        <p class="italic text-zinc-400">ไม่พบผู้ใช้งานตามคำค้นหา "{{ user_q }}"</p>
+                    </div>
                 {% else %}
                     <div class="flex flex-col items-center justify-center gap-2 text-zinc-400">
-                        <i data-lucide="search" class="w-8 h-8 text-zinc-600"></i>
-                        <span class="text-xs">พิมพ์ชื่อผู้ใช้, อีเมล หรือ Display Name ในช่องด้านบนเพื่อค้นหาบัญชีผู้ใช้</span>
+                        <i data-lucide="users" class="w-8 h-8 text-zinc-600"></i>
+                        <span class="text-xs">ยังไม่มีข้อมูลผู้ใช้งานในระบบ</span>
                     </div>
                 {% endif %}
             </div>
             {% endfor %}
         </div>
+
+        <!-- Pagination Controls (1 2 3 4 5...) -->
+        {% if users_page.paginator.num_pages > 1 %}
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-5 border-t border-white/10">
+            <div class="text-xs text-zinc-400">
+                หน้าที่ <span class="font-bold text-white">{{ users_page.number }}</span> จากทั้งหมด <span class="font-bold text-white">{{ users_page.paginator.num_pages }}</span> หน้า
+                <span class="text-zinc-500 ml-1">(ลำดับที่ {{ users_page.start_index }} - {{ users_page.end_index }} จากทั้งหมด {{ users_page.paginator.count }} บัญชี)</span>
+            </div>
+
+            <div class="flex items-center gap-1.5 flex-wrap justify-center">
+                <!-- Previous Button -->
+                {% if users_page.has_previous %}
+                    <a href="?user_page={{ users_page.previous_page_number }}{% if user_q %}&user_q={{ user_q|urlencode }}{% endif %}{% if status_filter and status_filter != 'pending' %}&status={{ status_filter }}{% endif %}#users-section" 
+                       class="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-900 border border-white/10 text-zinc-300 hover:text-white hover:border-white/25 transition flex items-center gap-1 active:scale-95 shadow-sm">
+                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                        <span>ก่อนหน้า</span>
+                    </a>
+                {% else %}
+                    <span class="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-950/60 border border-white/5 text-zinc-600 cursor-not-allowed flex items-center gap-1 select-none">
+                        <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                        <span>ก่อนหน้า</span>
+                    </span>
+                {% endif %}
+
+                <!-- Numbered Pages -->
+                <div class="flex items-center gap-1">
+                    {% for p in user_page_range %}
+                        {% if p == user_paginator.ELLIPSIS %}
+                            <span class="w-8 h-8 flex items-center justify-center text-xs text-zinc-500 select-none">…</span>
+                        {% elif p == users_page.number %}
+                            <span class="w-8 h-8 rounded-xl bg-white text-black font-extrabold text-xs flex items-center justify-center shadow-lg shadow-white/10 select-none">
+                                {{ p }}
+                            </span>
+                        {% else %}
+                            <a href="?user_page={{ p }}{% if user_q %}&user_q={{ user_q|urlencode }}{% endif %}{% if status_filter and status_filter != 'pending' %}&status={{ status_filter }}{% endif %}#users-section" 
+                               class="w-8 h-8 rounded-xl bg-zinc-900/90 border border-white/10 text-zinc-300 hover:text-white hover:border-white/30 text-xs font-bold flex items-center justify-center transition active:scale-95 shadow-sm">
+                                {{ p }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <!-- Next Button -->
+                {% if users_page.has_next %}
+                    <a href="?user_page={{ users_page.next_page_number }}{% if user_q %}&user_q={{ user_q|urlencode }}{% endif %}{% if status_filter and status_filter != 'pending' %}&status={{ status_filter }}{% endif %}#users-section" 
+                       class="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-900 border border-white/10 text-zinc-300 hover:text-white hover:border-white/25 transition flex items-center gap-1 active:scale-95 shadow-sm">
+                        <span>ถัดไป</span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </a>
+                {% else %}
+                    <span class="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-950/60 border border-white/5 text-zinc-600 cursor-not-allowed flex items-center gap-1 select-none">
+                        <span>ถัดไป</span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
     </div>
 
