@@ -958,6 +958,37 @@ class CheckinAppTests(TestCase):
         self.assertEqual(data['followers_count'], 1)
         self.assertEqual(data['followers'][0]['username'], 'testuser')
 
+    def test_google_login_and_avatar_handling(self):
+        from unittest.mock import patch, MagicMock
+        with patch('checkin.views.requests.post') as mock_post, \
+             patch('checkin.views.requests.get') as mock_get:
+            
+            # Mock Google Token Response
+            mock_token_res = MagicMock()
+            mock_token_res.json.return_value = {'access_token': 'fake_google_token'}
+            mock_post.return_value = mock_token_res
+
+            # Mock Google Userinfo Response
+            mock_userinfo_res = MagicMock()
+            mock_userinfo_res.json.return_value = {
+                'email': 'new_google_user@test.com',
+                'name': 'Google Traveler',
+                'picture': 'https://lh3.googleusercontent.com/a/ACg8ocTest=s96-c'
+            }
+            mock_get.return_value = mock_userinfo_res
+
+            response = self.client.get(reverse('google_callback') + '?code=fake_auth_code')
+            self.assertEqual(response.status_code, 302)
+
+            created_user = User.objects.filter(email='new_google_user@test.com').first()
+            self.assertIsNotNone(created_user)
+            self.assertTrue(hasattr(created_user, 'profile'))
+            
+            avatar_url = created_user.profile.get_avatar_url()
+            self.assertIsNotNone(avatar_url)
+            self.assertNotEqual(avatar_url, 'https://lh3.googleusercontent')  # Should not be corrupted truncated string
+            self.assertTrue(avatar_url.startswith('https://'))
+
 
 
 

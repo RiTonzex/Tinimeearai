@@ -395,6 +395,13 @@ class Profile(models.Model):
     def get_avatar_url(self):
         if not self.avatar:
             return None
+
+        # ตรวจสอบกรณีรูปเป็น External URL เช่น Google Avatar ที่เก็บผ่าน CloudinaryResource
+        if hasattr(self.avatar, 'public_id') and str(self.avatar.public_id).startswith(('http://', 'https://')):
+            if getattr(self.avatar, 'format', None):
+                return f"{self.avatar.public_id}.{self.avatar.format}"
+            return str(self.avatar.public_id)
+
         img_str = str(self.avatar).strip()
         if not img_str:
             return None

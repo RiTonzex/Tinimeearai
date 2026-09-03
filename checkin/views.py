@@ -1703,13 +1703,33 @@ def google_callback(request):
             user.set_unusable_password()
             user.save()
 
-        # อัปเดต Profile display_name และ avatar ถ้ายังไม่มี
+        # อัปเดต Profile display_name และ avatar
         if hasattr(user, 'profile'):
             profile = user.profile
             if not profile.display_name:
                 profile.display_name = name or user.username
-            if not profile.avatar and picture:
-                profile.avatar = picture
+            
+            # ดึงรูปโปรไฟล์จาก Google และอัปโหลดขึ้น Cloudinary เป็นไฟล์ถาวร
+            if picture:
+                # ปรับขนาดรูปเป็นความละเอียดสูงระดับ HD (400px)
+                hd_picture = picture.replace('=s96-c', '=s400-c')
+                avatar_str = str(profile.avatar or '')
+                # ดึงรูปใหม่หากยังไม่มีรูป หรือรูปเดิมเป็นรูปจาก Google/เกิดปัญหา URL ขาด
+                should_update_avatar = (
+                    not profile.avatar or 
+                    'https://lh3.googleusercontent' in avatar_str or
+                    f'avatar_user_{user.id}' in avatar_str
+                )
+                if should_update_avatar:
+                    try:
+                        cloud_avatar = upload_user_avatar(hd_picture, user.id)
+                        if cloud_avatar:
+                            profile.avatar = cloud_avatar
+                    except Exception as upload_err:
+                        print(f"Error uploading Google avatar to Cloudinary: {upload_err}")
+                        if not profile.avatar:
+                            profile.avatar = hd_picture
+
             profile.save()
 
         if hasattr(user, 'profile') and user.profile.is_banned:
