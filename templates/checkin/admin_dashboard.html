@@ -64,7 +64,7 @@
     <!-- Top Header Banner -->
     <div class="relative overflow-hidden rounded-3xl glass-panel p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-white/10">
         <div class="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
-        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-emerald-500/20 via-teal-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-purple-600/30 via-violet-500/20 to-transparent rounded-full blur-3xl pointer-events-none"></div>
 
         <div class="relative z-10 space-y-1.5">
             <div class="flex items-center gap-3">
@@ -200,15 +200,15 @@
             </div>
         </div>
 
-        <!-- Chart 2: Top Categories / Tags Distribution (1 Col) -->
+        <!-- Chart 2: Top Popular Provinces (6 Provinces) (1 Col) -->
         <div class="glass-panel rounded-3xl p-6 space-y-4">
             <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                    <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                <div class="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <i data-lucide="map-pin" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <h2 class="text-base font-extrabold text-white">หมวดหมู่อยอดนิยม</h2>
-                    <p class="text-xs text-zinc-400">สัดส่วนแท็กและประเภทสถานที่เช็คอิน</p>
+                    <h2 class="text-base font-extrabold text-white">จังหวัดยอดนิยม</h2>
+                    <p class="text-xs text-zinc-400">สัดส่วนโพสต์ตาม 6 จังหวัดยอดนิยมที่เช็คอินมากที่สุด</p>
                 </div>
             </div>
             <div class="h-64 w-full relative flex items-center justify-center">
@@ -475,8 +475,15 @@
                 </div>
             </div>
             {% empty %}
-            <div class="col-span-full py-8 text-center text-zinc-500 italic">
-                ไม่พบผู้ใช้งานตามคำค้นหา "{{ user_q }}"
+            <div class="col-span-full py-10 text-center text-zinc-500">
+                {% if user_q %}
+                    <p class="italic text-zinc-400">ไม่พบผู้ใช้งานตามคำค้นหา "{{ user_q }}"</p>
+                {% else %}
+                    <div class="flex flex-col items-center justify-center gap-2 text-zinc-400">
+                        <i data-lucide="search" class="w-8 h-8 text-zinc-600"></i>
+                        <span class="text-xs">พิมพ์ชื่อผู้ใช้, อีเมล หรือ Display Name ในช่องด้านบนเพื่อค้นหาบัญชีผู้ใช้</span>
+                    </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -610,7 +617,7 @@
             }
         });
 
-        // Chart 2: Top Categories Doughnut Chart
+        // Chart 2: Top Popular Provinces Doughnut Chart (6 Provinces)
         const ctxCat = document.getElementById('categoryChart').getContext('2d');
         new Chart(ctxCat, {
             type: 'doughnut',
