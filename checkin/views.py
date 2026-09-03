@@ -975,26 +975,30 @@ def admin_dashboard(request):
     category_labels = [p[0] for p in final_provinces[:6]]
     category_data = [p[1] for p in final_provinces[:6]]
 
-    # Moderation Queue (Reports)
-    status_filter = request.GET.get('status', 'all')
+    # Moderation Queue (Reports) - Default filter to 'pending'
+    status_filter = request.GET.get('status', 'pending')
+    if status_filter not in ('pending', 'resolved', 'dismissed'):
+        status_filter = 'pending'
+
     reports_qs = Report.objects.select_related(
         'reporter', 'reporter__profile',
         'post', 'post__user', 'post__user__profile',
         'comment', 'comment__user', 'comment__user__profile'
     )
-    if status_filter in ('pending', 'resolved', 'dismissed'):
-        reports = reports_qs.filter(status=status_filter)
-    else:
-        reports = reports_qs.all()
+    reports = reports_qs.filter(status=status_filter)
 
     # User Search & Ban Queue
     user_q = request.GET.get('user_q', '').strip()
     if user_q:
+        clean_q = user_q.lstrip('@').strip()
         users_list = User.objects.select_related('profile').filter(
             Q(username__icontains=user_q) |
+            Q(username__icontains=clean_q) |
             Q(email__icontains=user_q) |
-            Q(profile__display_name__icontains=user_q)
-        ).order_by('-date_joined')[:20]
+            Q(email__icontains=clean_q) |
+            Q(profile__display_name__icontains=user_q) |
+            Q(profile__display_name__icontains=clean_q)
+        ).distinct().order_by('-date_joined')[:20]
     else:
         users_list = []
 
@@ -1115,6 +1119,9 @@ def admin_resolve_report(request, report_id):
         return JsonResponse({'success': True, 'message': msg, 'status': report.status, 'status_display': report.get_status_display()})
 
     messages.success(request, msg)
+    referer = request.META.get('HTTP_REFERER')
+    if referer and 'admin_dashboard' in referer:
+        return redirect(referer)
     return redirect('admin_dashboard')
 
 
@@ -1142,6 +1149,9 @@ def admin_toggle_ban_user(request, user_id):
         return JsonResponse({'success': True, 'is_banned': profile.is_banned, 'message': msg})
 
     messages.success(request, msg)
+    referer = request.META.get('HTTP_REFERER')
+    if referer and 'admin_dashboard' in referer:
+        return redirect(referer)
     return redirect('admin_dashboard')
 
 
