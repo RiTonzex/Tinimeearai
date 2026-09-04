@@ -434,6 +434,27 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+        // Auto compress collection cover images
+        const setupCoverCompress = (inputId) => {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.addEventListener('change', async () => {
+                    if (input.files && input.files[0] && window.compressImageFile) {
+                        try {
+                            const comp = await window.compressImageFile(input.files[0], { maxWidth: 1280, maxHeight: 1280, quality: 0.82 });
+                            const dt = new DataTransfer();
+                            dt.items.add(comp);
+                            input.files = dt.files;
+                        } catch (e) {
+                            console.warn('Cover compression error:', e);
+                        }
+                    }
+                });
+            }
+        };
+        setupCoverCompress('col-cover-image');
+        setupCoverCompress('edit-col-cover-image');
+
         // Create collection form handler
         const form = document.getElementById('create-collection-form');
         if (form) {

@@ -1106,3 +1106,112 @@ onDomReady(() => {
         });
     }
 });
+
+// -----------------------------------------------------------------------------
+// Client-Side Image Compression Utility (Prevents HTTP 413 Payload Too Large)
+// -----------------------------------------------------------------------------
+/**
+ * บีบอัดและปรับขนาดรูปภาพฝั่งไคลเอนต์ก่อนอัปโหลด ป้องกันปัญหา Payload Too Large (413) บน Vercel Serverless
+ * @param {File} file - ไฟล์รูปภาพต้นฉบับ
+ * @param {Object} options - ตัวเลือกการบีบอัด { maxWidth, maxHeight, quality, skipThreshold }
+ * @returns {Promise<File>} - ไฟล์รูปภาพที่ถูกบีบอัดแล้ว
+ */
+async function compressImageFile(file, options = {}) {
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+        return file;
+    }
+
+    const {
+        maxWidth = 1920,
+        maxHeight = 1920,
+        quality = 0.82,
+        skipThreshold = 600 * 1024 // 600 KB
+    } = options;
+
+    // ถ้าเป็นรูปขนาดเล็กมากอยู่แล้ว และเป็น format ปกติ ให้ข้ามเพื่อความรวดเร็ว
+    if (file.size <= skipThreshold && (file.type === 'image/jpeg' || file.type === 'image/webp' || file.type === 'image/png')) {
+        return file;
+    }
+
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onerror = () => resolve(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onerror = () => resolve(file);
+            img.onload = () => {
+                let { width, height } = img;
+                if (!width || !height) {
+                    return resolve(file);
+                }
+
+                // คำนวณอัตราส่วนการย่อภาพ
+                if (width > maxWidth || height > maxHeight) {
+                    if (width / height > maxWidth / maxHeight) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    } else {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return resolve(file);
+
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, width, height);
+
+                const outputFormat = 'image/jpeg';
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        return resolve(file);
+                    }
+                    if (blob.size >= file.size && file.type === 'image/jpeg') {
+                        return resolve(file);
+                    }
+
+                    const originalName = file.name || 'image.jpg';
+                    const newName = originalName.replace(/\.[^/.]+$/, "") + ".jpg";
+                    const compressedFile = new File([blob], newName, {
+                        type: outputFormat,
+                        lastModified: Date.now()
+                    });
+
+                    resolve(compressedFile);
+                }, outputFormat, quality);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+/**
+ * บีบอัดรูปภาพหลายรูปพร้อมกัน
+ * @param {FileList|File[]} files - รายการไฟล์รูปภาพ
+ * @param {Object} options - ตัวเลือกการบีบอัด
+ * @returns {Promise<File[]>} - อาร์เรย์ของไฟล์รูปภาพที่บีบอัดแล้ว
+ */
+async function compressImageFiles(files, options = {}) {
+    if (!files || files.length === 0) return [];
+    const fileArr = Array.from(files);
+    const compressedList = [];
+    for (const f of fileArr) {
+        if (f && f.type && f.type.startsWith('image/')) {
+            const comp = await compressImageFile(f, options);
+            compressedList.push(comp);
+        } else if (f) {
+            compressedList.push(f);
+        }
+    }
+    return compressedList;
+}
+
+window.compressImageFile = compressImageFile;
+window.compressImageFiles = compressImageFiles;
+

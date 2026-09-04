@@ -137,13 +137,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (previewWrapper) previewWrapper.addEventListener('click', triggerFile);
 
     if (avatarInput) {
-        avatarInput.addEventListener('change', () => {
+        avatarInput.addEventListener('change', async () => {
             if (avatarInput.files && avatarInput.files[0]) {
                 const file = avatarInput.files[0];
                 if (!file.type.startsWith('image/')) {
                     alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
                     return;
                 }
+
+                let finalFile = file;
+                if (window.compressImageFile) {
+                    try {
+                        // ปรับขนาดรูปโปรไฟล์ไม่เกิน 800x800 คุณภาพ 0.85
+                        finalFile = await window.compressImageFile(file, { maxWidth: 800, maxHeight: 800, quality: 0.85 });
+                        const dt = new DataTransfer();
+                        dt.items.add(finalFile);
+                        avatarInput.files = dt.files;
+                    } catch (err) {
+                        console.warn('Avatar compression error:', err);
+                    }
+                }
+
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     if (imgPreview) {
@@ -154,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         initialFallback.classList.add('hidden');
                     }
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(finalFile);
             }
         });
     }

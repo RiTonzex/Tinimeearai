@@ -164,10 +164,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnGetLocation = document.getElementById('btn-get-location');
 
     if (extraInput) {
-        extraInput.addEventListener('change', () => {
+        extraInput.addEventListener('change', async () => {
             if (extraInput.files && extraInput.files.length > 0) {
                 newFilesStatus.classList.remove('hidden');
-                newFilesStatus.textContent = `เพิ่มอีก ${extraInput.files.length} รูปภาพแล้ว (จะถูกเพิ่มเข้า Carousel เมื่อบันทึก)`;
+                newFilesStatus.textContent = `กำลังปรับขนาดภาพ... ⏳`;
+                
+                if (window.compressImageFiles) {
+                    try {
+                        const compressed = await window.compressImageFiles(extraInput.files, { maxWidth: 1920, maxHeight: 1920, quality: 0.82 });
+                        const dt = new DataTransfer();
+                        compressed.forEach(f => dt.items.add(f));
+                        extraInput.files = dt.files;
+                    } catch (err) {
+                        console.warn('Compression error in post_edit:', err);
+                    }
+                }
+                newFilesStatus.textContent = `เพิ่มอีก ${extraInput.files.length} รูปภาพแล้ว (ปรับขนาดพร้อมอัปโหลด ✨)`;
             }
         });
     }
