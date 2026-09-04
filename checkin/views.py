@@ -46,7 +46,7 @@ def post_list(request):
     if feed_tab not in ('smart', 'following', 'explore', 'top_rated'):
         feed_tab = 'smart'
 
-    posts_qs = Post.objects.filter(is_hidden=False, user__profile__is_banned=False).select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images')
+    posts_qs = Post.objects.filter(is_hidden=False, user__profile__is_banned=False).select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images', 'tagged_users', 'tagged_users__profile')
 
     if query:
         posts_qs = posts_qs.filter(
@@ -79,7 +79,7 @@ def post_list(request):
             is_followed = p.user_id in following_ids
             follow_score = 1000 if is_followed else 0
             
-            # Engagement Score
+            # Engagement Score (คำนวณผ่าน Prefetched In-Memory Cache เพื่อความรวดเร็ว)
             engagement_score = (p.total_likes * 8) + (p.total_comments * 12) + (p.views_count * 1)
             
             # Multi-photo Carousel Bonus
@@ -113,17 +113,15 @@ def post_list(request):
 
     nearby = request.GET.get('nearby') == '1'
 
-    # เติมข้อมูลระยะทาง Haversine และสภาพอากาศสด Open-Meteo
+    # เติมข้อมูลระยะทาง Haversine (คำนวณในหน่วยความจำ ไม่เรียก External API เพื่อความรวดเร็ว)
     for p in posts:
         if user_lat is not None and user_lng is not None and getattr(p, 'has_coordinates', False):
             p.distance_km = calculate_haversine_distance(user_lat, user_lng, p.latitude, p.longitude)
         else:
             p.distance_km = None
 
-        if getattr(p, 'has_coordinates', False):
-            p.weather = get_live_weather(p.latitude, p.longitude)
-        else:
-            p.weather = None
+        # สภาพอากาศจะเรียกเมื่อเข้าดูหน้า post_detail เพื่อไม่ให้หน่วงหน้าฟีดหลัก
+        p.weather = None
 
     # ตัวกรอง "ใกล้ฉัน (< 10km)"
     if nearby and user_lat is not None and user_lng is not None:
@@ -592,7 +590,7 @@ def my_posts(request):
     """
     หน้าแสดงโพสต์และประวัติการเช็คอินของผู้ใช้งานปัจจุบัน
     """
-    posts = Post.objects.filter(user=request.user).select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').order_by('-created_at')
+    posts = Post.objects.filter(user=request.user).select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images', 'tagged_users').order_by('-created_at')
     total_checkins = posts.filter(latitude__isnull=False, longitude__isnull=False).count()
 
     geo_posts = []
@@ -624,7 +622,7 @@ def settings_view(request):
     user_posts = Post.objects.filter(user=request.user)
     total_posts = user_posts.count()
     total_checkins = user_posts.filter(latitude__isnull=False, longitude__isnull=False).count()
-    total_likes_received = sum(p.likes.count() for p in user_posts)
+    total_likes_received = user_posts.aggregate(total=Count('likes'))['total'] or 0
 
     context = {
         'total_posts': total_posts,
@@ -684,10 +682,10 @@ def user_profile_view(request, username):
     target_user = get_object_or_404(User, username=username)
     profile, _ = Profile.objects.get_or_create(user=target_user)
     
-    target_posts = target_user.posts.select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images').order_by('-created_at')
+    target_posts = target_user.posts.select_related('user', 'user__profile').prefetch_related('likes', 'comments', 'images', 'tagged_users').order_by('-created_at')
     total_posts = target_posts.count()
     total_checkins = target_posts.filter(latitude__isnull=False, longitude__isnull=False).count()
-    total_likes_received = sum(p.likes.count() for p in target_posts)
+    total_likes_received = target_posts.aggregate(total=Count('likes'))['total'] or 0
 
     is_following = profile.is_followed_by(request.user) if request.user.is_authenticated else False
 

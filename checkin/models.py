@@ -142,19 +142,28 @@ class Post(models.Model):
 
     @property
     def total_likes(self):
+        if hasattr(self, '_prefetched_objects_cache') and 'likes' in self._prefetched_objects_cache:
+            return len(self.likes.all())
         return self.likes.count()
 
     @property
     def total_comments(self):
+        if hasattr(self, '_prefetched_objects_cache') and 'comments' in self._prefetched_objects_cache:
+            return len([c for c in self.comments.all() if not c.is_hidden])
         return self.comments.filter(is_hidden=False).count()
 
     @property
     def extra_tagged_count(self):
-        cnt = self.tagged_users.count()
+        if hasattr(self, '_prefetched_objects_cache') and 'tagged_users' in self._prefetched_objects_cache:
+            cnt = len(self.tagged_users.all())
+        else:
+            cnt = self.tagged_users.count()
         return cnt - 2 if cnt > 2 else 0
 
     @property
     def first_two_tagged_users(self):
+        if hasattr(self, '_prefetched_objects_cache') and 'tagged_users' in self._prefetched_objects_cache:
+            return list(self.tagged_users.all())[:2]
         return self.tagged_users.all()[:2]
 
     @property
@@ -206,6 +215,9 @@ class Post(models.Model):
         """
         คืนค่า List ของ URLs รูปภาพทั้งหมดในโพสต์สำหรับแสดงผลแบบ Carousel
         """
+        if hasattr(self, '_cached_image_urls'):
+            return self._cached_image_urls
+
         urls = []
         for post_img in self.images.all():
             url = post_img.get_image_url()
@@ -217,7 +229,9 @@ class Post(models.Model):
             if primary_url and primary_url not in ('https://images.unsplash', 'http://images.unsplash'):
                 urls.append(primary_url)
 
-        return urls if urls else ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&auto=format&fit=crop&q=80"]
+        res = urls if urls else ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&auto=format&fit=crop&q=80"]
+        self._cached_image_urls = res
+        return res
 
 
 class PostImage(models.Model):
